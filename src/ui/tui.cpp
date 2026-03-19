@@ -37,12 +37,17 @@ void TUI::drawBox(int y, int x, int h, int w) {
     mvvline(y + 1, x + w - 1, ACS_VLINE, h - 2);
 }
 
-// ── truncate helper ───────────────────────────────────────────────────────────
+// ── helpers ───────────────────────────────────────────────────────────────────
 
 static std::string trunc(const std::string& s, int max) {
     if (max <= 0) return "";
     if ((int)s.size() <= max) return s;
     return s.substr(0, max - 1) + "~";
+}
+
+// Print a keybind hint bar clamped to terminal width
+static void printHints(int row, int col, const char* hints, int cols) {
+    mvprintw(row, col, "%s", trunc(hints, cols - col - 1).c_str());
 }
 
 // ── MODE_LIST ─────────────────────────────────────────────────────────────────
@@ -60,48 +65,52 @@ void TUI::drawList() {
     int boxH = rows - 4;
     drawBox(1, 0, boxH, cols);
 
+    // Fixed column widths that always fit inside the box
+    int pkgW  = 24;                       // package name column
+    int delW  = 5;                        // "[x]" + 2 spaces
+    int fileW = cols - pkgW - delW - 6;   // remainder (- borders - gaps)
+    if (fileW < 8) fileW = 8;
+
     // Column headers inside box
     attron(A_BOLD);
-    mvprintw(2, 2, "%-26s %-*s %s", "Package", cols - 36, "Source file", "Remove");
+    mvprintw(2, 2, "%-*s  %-*s  %s",
+        pkgW, "Package", fileW, "Source file", "Del");
     attroff(A_BOLD);
     mvhline(3, 1, ACS_HLINE, cols - 2);
     mvaddch(3, 0,        ACS_LTEE);
     mvaddch(3, cols - 1, ACS_RTEE);
 
     // Package rows
-    int listH  = boxH - 4;          // usable rows inside box
+    int listH  = boxH - 4;
     int offset = 0;
     if (listCursor >= listH) offset = listCursor - listH + 1;
 
     for (int i = 0; i < listH && (i + offset) < (int)installed.size(); ++i) {
-        int idx              = i + offset;
-        const PackageEntry&  pkg = installed[idx];
-        bool selected        = (idx == listCursor);
-        bool marked          = pkg.markedForDeletion;
+        int idx = i + offset;
+        const PackageEntry& pkg = installed[idx];
+        bool selected = (idx == listCursor);
+        bool marked   = pkg.markedForDeletion;
 
         if (selected) attron(A_REVERSE);
         if (marked)   attron(A_BOLD);
 
-        mvprintw(4 + i, 2, "%-26s %-*s  %s",
-            trunc(pkg.name, 26).c_str(),
-            cols - 36,
-            trunc(pkg.filePath, cols - 36).c_str(),
+        mvprintw(4 + i, 2, "%-*s  %-*s  %s",
+            pkgW, trunc(pkg.name,     pkgW).c_str(),
+            fileW, trunc(pkg.filePath, fileW).c_str(),
             marked ? "[x]" : "[ ]");
 
         if (marked)   attroff(A_BOLD);
         if (selected) attroff(A_REVERSE);
     }
 
-    // Status bar
+    // Status / hints bar
     int marked = 0;
     for (auto& p : installed) if (p.markedForDeletion) marked++;
 
     mvhline(rows - 3, 0, ACS_HLINE, cols);
-    mvprintw(rows - 2, 2, "%zu packages  %d marked",
-             installed.size(), marked);
+    mvprintw(rows - 2, 2, "%zu packages  %d marked", installed.size(), marked);
     mvhline(rows - 1, 0, ACS_HLINE, cols);
-    mvprintw(rows - 1, 2,
-        "j/k: move   d: mark/unmark   a: add   w: apply+rebuild   q: quit");
+    printHints(rows - 1, 2, "j/k move   d mark   a add   w save+rebuild   q quit", cols);
 }
 
 // ── MODE_SEARCH ───────────────────────────────────────────────────────────────
@@ -166,8 +175,7 @@ void TUI::drawSearch() {
     mvhline(rows - 3, 0, ACS_HLINE, cols);
     mvprintw(rows - 2, 2, "%zu results", searchResults.size());
     mvhline(rows - 1, 0, ACS_HLINE, cols);
-    mvprintw(rows - 1, 2,
-        "type: search   j/k: move   enter: select   esc: back");
+    printHints(rows - 1, 2, "type search   j/k move   enter select   esc back", cols);
 }
 
 // ── MODE_SELECT_MODULE ────────────────────────────────────────────────────────
@@ -197,23 +205,26 @@ void TUI::drawModuleSelect() {
     mvaddch(7, 0,        ACS_LTEE);
     mvaddch(7, cols - 1, ACS_RTEE);
 
+    int styleW  = 26;                        // "with pkgs;  →  bare name"
+    int fileColW = cols - styleW - 6;        // remainder
+    if (fileColW < 12) fileColW = 12;
+
     for (int i = 0; i < (int)installTargets.size() && i < tboxH - 4; ++i) {
         const InstallTarget& t = installTargets[i];
         bool sel = (i == moduleCursor);
         if (sel) attron(A_REVERSE);
-        mvprintw(8 + i, 2, "%-36s %s",
-            trunc(t.filePath, 36).c_str(),
-            t.usesWithPkgs
-                ? "with pkgs;  ──›  bare name"
-                : "no with  ──›  pkgs.<name>");
+        const char* style = t.usesWithPkgs ? "with pkgs → bare name"
+                                           : "no with   → pkgs.<name>";
+        mvprintw(8 + i, 2, "%-*s  %s",
+            fileColW, trunc(t.filePath, fileColW).c_str(), style);
         if (sel) attroff(A_REVERSE);
     }
 
     mvhline(rows - 3, 0, ACS_HLINE, cols);
     if (!statusMsg.empty())
-        mvprintw(rows - 2, 2, "%s", statusMsg.c_str());
+        mvprintw(rows - 2, 2, "%s", trunc(statusMsg, cols - 4).c_str());
     mvhline(rows - 1, 0, ACS_HLINE, cols);
-    mvprintw(rows - 1, 2, "j/k: move   enter: install here   esc: back");
+    printHints(rows - 1, 2, "j/k move   enter install   esc back", cols);
 }
 
 // ── rebuild output ────────────────────────────────────────────────────────────
