@@ -65,33 +65,61 @@ ModuleInfo ModuleResolver::loadModule(const std::string& filePath) {
 std::vector<std::string> ModuleResolver::parseImports(const std::string& content) {
     std::vector<std::string> imports;
     
-    // Regex to match imports = [ ... ] (non-greedy to handle multiline)
-    std::regex importsRegex(R"(imports\s*=\s*\[(.*?)\])", 
-                           std::regex_constants::ECMAScript);
-    std::smatch match;
+    // Find "imports = [" and then find the matching "]"
+    size_t importsPos = content.find("imports");
+    if (importsPos == std::string::npos) {
+        return imports;
+    }
     
-    if (std::regex_search(content, match, importsRegex)) {
-        std::string importsBlock = match[1].str();
+    // Find the opening bracket
+    size_t openBracket = content.find('[', importsPos);
+    if (openBracket == std::string::npos) {
+        return imports;
+    }
+    
+    // Find the matching closing bracket
+    int bracketCount = 1;
+    size_t closeBracket = openBracket + 1;
+    while (closeBracket < content.length() && bracketCount > 0) {
+        if (content[closeBracket] == '[') {
+            bracketCount++;
+        } else if (content[closeBracket] == ']') {
+            bracketCount--;
+        }
+        closeBracket++;
+    }
+    
+    if (bracketCount != 0) {
+        return imports; // Unmatched brackets
+    }
+    
+    // Extract the content between brackets
+    std::string importsBlock = content.substr(openBracket + 1, closeBracket - openBracket - 2);
+    
+    // Parse paths - look for lines starting with ./ or containing /
+    std::stringstream ss(importsBlock);
+    std::string line;
+    while (std::getline(ss, line)) {
+        // Trim whitespace
+        size_t start = line.find_first_not_of(" \t\r");
+        if (start == std::string::npos) continue;
         
-        // Regex to match paths in quotes or plain paths
-        std::regex pathRegex(R"((?:\"|\s|^)(\.?\.?/[^\";\s]+|[^\"/\s][^\";\s]*/[^\";\s]+))");
-        std::sregex_iterator iter(importsBlock.begin(), importsBlock.end(), pathRegex);
-        std::sregex_iterator end;
+        size_t end = line.find_last_not_of(" \t\r");
+        std::string path = line.substr(start, end - start + 1);
         
-        for (; iter != end; ++iter) {
-            std::string path = iter->str(1);
-            
-            // Clean up the path
-            size_t start = path.find_first_not_of(" \t\n\r\"");
-            size_t end_pos = path.find_last_not_of(" \t\n\r\"");
-            if (start != std::string::npos && end_pos != std::string::npos) {
-                path = path.substr(start, end_pos - start + 1);
-            }
-            
-            // Only add non-empty paths that don't start with <
-            if (!path.empty() && path[0] != '<' && path.find('/') != std::string::npos) {
-                imports.push_back(path);
-            }
+        // Remove trailing semicolon if present
+        if (!path.empty() && path.back() == ';') {
+            path.pop_back();
+        }
+        
+        // Skip empty paths, comments, and nixpkgs paths (starting with <)
+        if (path.empty() || path[0] == '#' || path[0] == '<') {
+            continue;
+        }
+        
+        // Accept paths that start with ./ or contain /
+        if (path[0] == '.' || path.find('/') != std::string::npos) {
+            imports.push_back(path);
         }
     }
     
@@ -104,10 +132,10 @@ std::string ModuleResolver::resolvePath(const std::string& base, const std::stri
         return relative;
     }
     
-    // Handle relative paths
+    // Handle relative paths - base is already a directory
     std::filesystem::path basePath(base);
     std::filesystem::path relativePath(relative);
-    std::filesystem::path resolved = basePath.parent_path() / relativePath;
+    std::filesystem::path resolved = basePath / relativePath;
     
     // Normalize path
     return std::filesystem::absolute(resolved).lexically_normal().string();

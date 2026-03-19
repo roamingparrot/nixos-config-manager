@@ -23,6 +23,7 @@ set(SOURCES
     core/configParser.cpp
     core/configEditor.cpp
     core/rebuildManager.cpp
+    core/packageSearcher.cpp
     ui/tui.cpp
 )
 

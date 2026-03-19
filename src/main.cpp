@@ -11,6 +11,12 @@ int main() {
         ModuleResolver resolver;
         std::vector<std::string> modules = resolver.resolveAllModules("/etc/nixos/configuration.nix");
         
+        std::cout << "Found " << modules.size() << " modules:" << std::endl;
+        for (const auto& mod : modules) {
+            std::cout << "  - " << mod << std::endl;
+        }
+        std::cout << std::endl;
+        
         // Parse packages from all modules
         ConfigParser parser;
         std::vector<PackageEntry> allPackages;
@@ -19,11 +25,13 @@ int main() {
             try {
                 ModuleInfo module = resolver.loadModule(modulePath);
                 std::vector<PackageEntry> packages = parser.extractPackages(module.content, modulePath);
+                std::cout << "Module " << modulePath << ": found " << packages.size() << " packages" << std::endl;
                 allPackages.insert(allPackages.end(), packages.begin(), packages.end());
             } catch (const std::exception& e) {
                 std::cerr << "Warning: Could not parse " << modulePath << ": " << e.what() << std::endl;
             }
         }
+        std::cout << std::endl;
         
         if (allPackages.empty()) {
             std::cout << "No packages found in NixOS configuration." << std::endl;
