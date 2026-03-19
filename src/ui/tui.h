@@ -17,16 +17,12 @@ private:
     int cursorPosition;
     bool searchMode;
     std::string searchQuery;
+    bool shouldSave;
     
     /**
      * @brief Draw the TUI interface
      */
     void draw();
-    
-    /**
-     * @brief Handle user input
-     */
-    void handleInput();
     
 public:
     /**
@@ -42,14 +38,15 @@ public:
     
     /**
      * @brief Run the TUI main loop
+     * @return True if user wants to save, false otherwise
      */
-    void run();
+    bool run();
     
     /**
-     * @brief Display a message to the user
-     * @param message Message to display
+     * @brief Get packages (potentially modified)
+     * @return Vector of packages
      */
-    void showMessage(const std::string& message);
+    std::vector<PackageEntry> getPackages() const;
 };
 
 #endif // TUI_H
