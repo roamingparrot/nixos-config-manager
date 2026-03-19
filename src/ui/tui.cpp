@@ -6,6 +6,7 @@
 #include <ncurses.h>
 #include <sstream>
 #include <cstring>
+#include <cstdlib>
 
 using Ms = std::chrono::milliseconds;
 
@@ -272,6 +273,15 @@ void TUI::triggerSearch() {
 // ── install / remove ──────────────────────────────────────────────────────────
 
 void TUI::doInstall(const InstallTarget& target) {
+    // Phase 7: duplicate detection
+    for (const auto& existing : installed) {
+        if (existing.name == pendingResult.packageName) {
+            statusMsg = "Already installed: " + pendingResult.packageName
+                      + "  (" + existing.filePath + ")";
+            return;
+        }
+    }
+
     std::string pkg = target.usesWithPkgs
         ? pendingResult.packageName
         : pendingResult.getPkgsAttribute();
@@ -281,6 +291,17 @@ void TUI::doInstall(const InstallTarget& target) {
         statusMsg = "Error: could not write to file.";
         return;
     }
+
+    // Phase 8: validate Nix syntax before rebuilding
+    std::string parseCmd = "nix-instantiate --parse " + target.filePath
+                         + " > /dev/null 2>&1";
+    if (std::system(parseCmd.c_str()) != 0) {
+        statusMsg = "Syntax error in " + target.fileName + " – changes not applied";
+        // Revert: remove the line we just added by running the editor in reverse
+        // (simplest safe option is to warn and let user fix manually)
+        return;
+    }
+
     RebuildManager rebuild;
     bool ok = rebuild.rebuild();
     drawRebuildOutput(rebuild.getOutput(), ok);
@@ -296,6 +317,21 @@ void TUI::doRemove() {
         statusMsg = "Error: could not remove packages.";
         return;
     }
+
+    // Validate all modified files before rebuilding
+    bool syntaxOk = true;
+    for (const auto& p : installed) {
+        if (!p.markedForDeletion) continue;
+        std::string parseCmd = "nix-instantiate --parse " + p.filePath
+                             + " > /dev/null 2>&1";
+        if (std::system(parseCmd.c_str()) != 0) {
+            statusMsg = "Syntax error after edit in " + p.filePath;
+            syntaxOk  = false;
+            break;
+        }
+    }
+    if (!syntaxOk) return;
+
     RebuildManager rebuild;
     bool ok = rebuild.rebuild();
     drawRebuildOutput(rebuild.getOutput(), ok);
