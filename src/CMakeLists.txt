@@ -24,6 +24,7 @@ set(SOURCES
     core/configEditor.cpp
     core/rebuildManager.cpp
     core/packageSearcher.cpp
+    core/fileSyntaxDetector.cpp
     ui/tui.cpp
 )
 
