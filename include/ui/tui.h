@@ -3,50 +3,59 @@
 
 #include <string>
 #include <vector>
+#include <chrono>
 #include "models/packageEntry.h"
 #include "models/searchResult.h"
 #include "models/installTarget.h"
 
 enum TUIMode {
     MODE_LIST,          // Browse installed packages
-    MODE_SEARCH,        // Live search + results in one view
-    MODE_SELECT_MODULE  // Pick which file to install into
+    MODE_SEARCH,        // Live search + results
+    MODE_SELECT_MODULE  // Pick target .nix file
 };
 
 /**
- * @brief Self-contained TUI. Owns all search/install logic so it
- *        never needs to exit back to main to perform an action.
+ * @brief Self-contained TUI. Owns all search/install logic.
+ *        Uses halfdelay() + timestamp debouncing so search only
+ *        fires after the user pauses typing for ~600 ms.
  */
 class TUI {
 private:
+    using Clock = std::chrono::steady_clock;
+    using TimePoint = std::chrono::time_point<Clock>;
+
     // ── state ─────────────────────────────────────────────
     TUIMode mode;
     std::vector<PackageEntry>  installed;
     std::vector<SearchResult>  searchResults;
     std::vector<InstallTarget> installTargets;
 
-    int  listCursor;
-    int  resultCursor;
-    int  moduleCursor;
+    int listCursor;
+    int resultCursor;
+    int moduleCursor;
 
     std::string searchQuery;
-    std::string statusMsg;   // one-line feedback at bottom
+    std::string statusMsg;
+    std::string searchingMsg;  // "Searching…" indicator
 
-    SearchResult  pendingResult;  // chosen from search before module pick
-    bool          actionDone;     // set true once install/remove finished
+    SearchResult pendingResult;
 
-    // ── drawing ───────────────────────────────────────────
-    void drawBorder(int row, int cols);
+    // Debounce: fire search 600 ms after last keystroke
+    TimePoint    lastKeystroke;
+    bool         searchPending;  // query changed, search not yet run
+    bool         isSearching;    // search currently running
+
+    // ── draw ──────────────────────────────────────────────
     void drawList();
     void drawSearch();
     void drawModuleSelect();
-    void setStatus(const std::string& msg);
+    void drawBox(int y, int x, int h, int w);
+    void drawRebuildOutput(const std::string& out, bool ok);
 
-    // ── search helpers ────────────────────────────────────
-    void runSearch();                      // calls nix-env, updates searchResults
-    void doInstall(const InstallTarget&);  // insert + rebuild
-    void doRemove();                       // remove marked + rebuild
-    void showRebuildOutput(const std::string& out, bool ok);
+    // ── helpers ───────────────────────────────────────────
+    void triggerSearch();
+    void doInstall(const InstallTarget& t);
+    void doRemove();
 
 public:
     TUI();

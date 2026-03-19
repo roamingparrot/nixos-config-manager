@@ -5,24 +5,15 @@
 #include "core/rebuildManager.h"
 #include <ncurses.h>
 #include <sstream>
-#include <algorithm>
+#include <cstring>
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+using Ms = std::chrono::milliseconds;
 
-static std::string truncate(const std::string& s, int max) {
-    if ((int)s.size() <= max) return s;
-    return s.substr(0, max - 1) + "~";
-}
-
-static void drawHLine(int row, int cols) {
-    mvhline(row, 0, ACS_HLINE, cols);
-}
-
-// ── ctor / init ───────────────────────────────────────────────────────────────
+// ── constructor ───────────────────────────────────────────────────────────────
 
 TUI::TUI()
-    : mode(MODE_LIST), listCursor(0), resultCursor(0),
-      moduleCursor(0), actionDone(false) {}
+    : mode(MODE_LIST), listCursor(0), resultCursor(0), moduleCursor(0),
+      searchPending(false), isSearching(false) {}
 
 void TUI::initialize(const std::vector<PackageEntry>& pkgs,
                      const std::vector<InstallTarget>& targets) {
@@ -30,220 +21,273 @@ void TUI::initialize(const std::vector<PackageEntry>& pkgs,
     installTargets = targets;
 }
 
-// ── status line ───────────────────────────────────────────────────────────────
+// ── box drawing ───────────────────────────────────────────────────────────────
 
-void TUI::setStatus(const std::string& msg) { statusMsg = msg; }
+void TUI::drawBox(int y, int x, int h, int w) {
+    // Corners
+    mvaddch(y,         x,         ACS_ULCORNER);
+    mvaddch(y,         x + w - 1, ACS_URCORNER);
+    mvaddch(y + h - 1, x,         ACS_LLCORNER);
+    mvaddch(y + h - 1, x + w - 1, ACS_LRCORNER);
+    // Horizontal edges
+    mvhline(y,         x + 1, ACS_HLINE, w - 2);
+    mvhline(y + h - 1, x + 1, ACS_HLINE, w - 2);
+    // Vertical edges
+    mvvline(y + 1, x,         ACS_VLINE, h - 2);
+    mvvline(y + 1, x + w - 1, ACS_VLINE, h - 2);
+}
 
-// ── draw helpers ──────────────────────────────────────────────────────────────
+// ── truncate helper ───────────────────────────────────────────────────────────
 
-void TUI::drawBorder(int row, int cols) { drawHLine(row, cols); }
+static std::string trunc(const std::string& s, int max) {
+    if (max <= 0) return "";
+    if ((int)s.size() <= max) return s;
+    return s.substr(0, max - 1) + "~";
+}
+
+// ── MODE_LIST ─────────────────────────────────────────────────────────────────
 
 void TUI::drawList() {
     int rows, cols;
     getmaxyx(stdscr, rows, cols);
 
-    // Header
-    attron(A_BOLD);
-    mvprintw(0, 0, "dotman  –  NixOS package manager");
-    attroff(A_BOLD);
-    drawBorder(1, cols);
+    // Title bar
+    attron(A_REVERSE | A_BOLD);
+    mvprintw(0, 0, "%-*s", cols, " dotman – NixOS package manager");
+    attroff(A_REVERSE | A_BOLD);
 
-    // Column headings
-    mvprintw(2, 2,  "Package");
-    mvprintw(2, 28, "Source file");
-    mvprintw(2, cols - 6, "Del?");
-    drawBorder(3, cols);
+    // Outer box  (row 1 … rows-4)
+    int boxH = rows - 4;
+    drawBox(1, 0, boxH, cols);
+
+    // Column headers inside box
+    attron(A_BOLD);
+    mvprintw(2, 2, "%-26s %-*s %s", "Package", cols - 36, "Source file", "Remove");
+    attroff(A_BOLD);
+    mvhline(3, 1, ACS_HLINE, cols - 2);
+    mvaddch(3, 0,        ACS_LTEE);
+    mvaddch(3, cols - 1, ACS_RTEE);
 
     // Package rows
-    int listRows = rows - 7;   // rows available for packages
-    int startRow = 4;
-
-    // Scroll offset so cursor stays visible
+    int listH  = boxH - 4;          // usable rows inside box
     int offset = 0;
-    if (listCursor >= listRows) offset = listCursor - listRows + 1;
+    if (listCursor >= listH) offset = listCursor - listH + 1;
 
-    for (int i = 0; i < listRows && (i + offset) < (int)installed.size(); ++i) {
-        int idx = i + offset;
-        const PackageEntry& pkg = installed[idx];
-        bool selected = (idx == listCursor);
+    for (int i = 0; i < listH && (i + offset) < (int)installed.size(); ++i) {
+        int idx              = i + offset;
+        const PackageEntry&  pkg = installed[idx];
+        bool selected        = (idx == listCursor);
+        bool marked          = pkg.markedForDeletion;
 
         if (selected) attron(A_REVERSE);
-        if (pkg.markedForDeletion) attron(A_BOLD);
+        if (marked)   attron(A_BOLD);
 
-        mvprintw(startRow + i, 2,  "%s", truncate(pkg.name,     24).c_str());
-        mvprintw(startRow + i, 28, "%s", truncate(pkg.filePath, cols - 36).c_str());
-        mvprintw(startRow + i, cols - 5, "%s", pkg.markedForDeletion ? "[x]" : "   ");
+        mvprintw(4 + i, 2, "%-26s %-*s  %s",
+            trunc(pkg.name, 26).c_str(),
+            cols - 36,
+            trunc(pkg.filePath, cols - 36).c_str(),
+            marked ? "[x]" : "[ ]");
 
-        if (pkg.markedForDeletion) attroff(A_BOLD);
+        if (marked)   attroff(A_BOLD);
         if (selected) attroff(A_REVERSE);
     }
 
-    // Footer
-    drawBorder(rows - 3, cols);
+    // Status bar
     int marked = 0;
     for (auto& p : installed) if (p.markedForDeletion) marked++;
-    mvprintw(rows - 2, 2, "%zu installed  |  %d marked for removal",
+
+    mvhline(rows - 3, 0, ACS_HLINE, cols);
+    mvprintw(rows - 2, 2, "%zu packages  %d marked",
              installed.size(), marked);
-    drawBorder(rows - 1, cols);
+    mvhline(rows - 1, 0, ACS_HLINE, cols);
     mvprintw(rows - 1, 2,
-             "j/k Move   d Mark/unmark   a Add package   w Save+rebuild   q Quit");
+        "j/k: move   d: mark/unmark   a: add   w: apply+rebuild   q: quit");
 }
+
+// ── MODE_SEARCH ───────────────────────────────────────────────────────────────
 
 void TUI::drawSearch() {
     int rows, cols;
     getmaxyx(stdscr, rows, cols);
 
-    // Header
-    attron(A_BOLD);
-    mvprintw(0, 0, "dotman  –  Add package");
-    attroff(A_BOLD);
-    drawBorder(1, cols);
+    // Title bar
+    attron(A_REVERSE | A_BOLD);
+    mvprintw(0, 0, "%-*s", cols, " dotman – Add package");
+    attroff(A_REVERSE | A_BOLD);
 
-    // Search bar
+    // Search input box (rows 1-3)
+    drawBox(1, 0, 3, cols);
     mvprintw(2, 2, "Search: %s", searchQuery.c_str());
-    // Draw blinking cursor character
-    int cursorCol = 10 + (int)searchQuery.size();
-    attron(A_BLINK | A_BOLD);
-    mvprintw(2, cursorCol, "_");
-    attroff(A_BLINK | A_BOLD);
+    // Cursor
+    attron(A_BOLD);
+    mvprintw(2, 10 + (int)searchQuery.size(), "_");
+    attroff(A_BOLD);
+    // Status hint inside search box (right side)
+    const char* hint = isSearching  ? "  searching…"
+                     : searchPending ? "  …"
+                     : "";
+    mvprintw(2, cols - (int)strlen(hint) - 2, "%s", hint);
 
-    drawBorder(3, cols);
+    // Results box (row 4 … rows-4)
+    int resBoxH = rows - 7;
+    drawBox(4, 0, resBoxH, cols);
 
-    // Column headings
-    mvprintw(4, 2,  "Package");
-    mvprintw(4, 28, "Version");
-    drawBorder(5, cols);
+    // Column headers
+    attron(A_BOLD);
+    mvprintw(5, 2, "%-28s %s", "Package", "Version");
+    attroff(A_BOLD);
+    mvhline(6, 1, ACS_HLINE, cols - 2);
+    mvaddch(6, 0,        ACS_LTEE);
+    mvaddch(6, cols - 1, ACS_RTEE);
 
-    // Results list
-    int listRows = rows - 9;
-    int offset   = 0;
-    if (resultCursor >= listRows) offset = resultCursor - listRows + 1;
+    // Results
+    int listH  = resBoxH - 4;
+    int offset = 0;
+    if (resultCursor >= listH) offset = resultCursor - listH + 1;
 
     if (searchQuery.empty()) {
-        mvprintw(6, 2, "Start typing to search nixpkgs...");
-    } else if (searchResults.empty()) {
-        mvprintw(6, 2, "No results for \"%s\"", searchQuery.c_str());
+        mvprintw(7, 2, "Type a package name to search nixpkgs…");
+    } else if (!isSearching && searchResults.empty()) {
+        mvprintw(7, 2, "No results for \"%s\"", searchQuery.c_str());
     } else {
-        for (int i = 0; i < listRows && (i + offset) < (int)searchResults.size(); ++i) {
+        for (int i = 0; i < listH && (i + offset) < (int)searchResults.size(); ++i) {
             int idx = i + offset;
             const SearchResult& r = searchResults[idx];
-            bool selected = (idx == resultCursor);
-
-            if (selected) attron(A_REVERSE);
-            mvprintw(6 + i, 2,  "%s", truncate(r.packageName, 24).c_str());
-            mvprintw(6 + i, 28, "%s", truncate(r.version, cols - 32).c_str());
-            if (selected) attroff(A_REVERSE);
+            bool sel = (idx == resultCursor);
+            if (sel) attron(A_REVERSE);
+            mvprintw(7 + i, 2, "%-28s %s",
+                trunc(r.packageName, 28).c_str(),
+                trunc(r.version, cols - 34).c_str());
+            if (sel) attroff(A_REVERSE);
         }
     }
 
-    // Footer
-    drawBorder(rows - 3, cols);
+    // Status bar
+    mvhline(rows - 3, 0, ACS_HLINE, cols);
     mvprintw(rows - 2, 2, "%zu results", searchResults.size());
-    drawBorder(rows - 1, cols);
+    mvhline(rows - 1, 0, ACS_HLINE, cols);
     mvprintw(rows - 1, 2,
-             "Type to search   j/k Move   Enter Select   Esc Cancel");
+        "type: search   j/k: move   enter: select   esc: back");
 }
+
+// ── MODE_SELECT_MODULE ────────────────────────────────────────────────────────
 
 void TUI::drawModuleSelect() {
     int rows, cols;
     getmaxyx(stdscr, rows, cols);
 
+    attron(A_REVERSE | A_BOLD);
+    mvprintw(0, 0, "%-*s", cols, " dotman – Select installation target");
+    attroff(A_REVERSE | A_BOLD);
+
+    // Info box (rows 1-5)
+    drawBox(1, 0, 4, cols);
+    mvprintw(2, 2, "Package : %s  (%s)",
+        pendingResult.packageName.c_str(),
+        pendingResult.version.c_str());
+    mvprintw(3, 2, "Select the .nix file to add this package to:");
+
+    // Targets box
+    int tboxH = rows - 9;
+    drawBox(5, 0, tboxH, cols);
     attron(A_BOLD);
-    mvprintw(0, 0, "dotman  –  Select installation target");
+    mvprintw(6, 2, "%-36s %s", "File", "Insertion style");
     attroff(A_BOLD);
-    drawBorder(1, cols);
+    mvhline(7, 1, ACS_HLINE, cols - 2);
+    mvaddch(7, 0,        ACS_LTEE);
+    mvaddch(7, cols - 1, ACS_RTEE);
 
-    mvprintw(2, 2, "Installing: %s", pendingResult.packageName.c_str());
-    mvprintw(3, 2, "Choose which file to add it to:");
-    drawBorder(4, cols);
-
-    mvprintw(5, 2,  "File");
-    mvprintw(5, 40, "Syntax");
-    drawBorder(6, cols);
-
-    int listRows = rows - 10;
-    for (int i = 0; i < (int)installTargets.size() && i < listRows; ++i) {
+    for (int i = 0; i < (int)installTargets.size() && i < tboxH - 4; ++i) {
         const InstallTarget& t = installTargets[i];
-        bool selected = (i == moduleCursor);
-
-        if (selected) attron(A_REVERSE);
-        mvprintw(7 + i, 2,  "%s", truncate(t.fileName, 36).c_str());
-        mvprintw(7 + i, 40, "%s", t.usesWithPkgs ? "with pkgs;  →  pkgname"
-                                                  : "without with  →  pkgs.pkgname");
-        if (selected) attroff(A_REVERSE);
+        bool sel = (i == moduleCursor);
+        if (sel) attron(A_REVERSE);
+        mvprintw(8 + i, 2, "%-36s %s",
+            trunc(t.filePath, 36).c_str(),
+            t.usesWithPkgs
+                ? "with pkgs;  ──›  bare name"
+                : "no with  ──›  pkgs.<name>");
+        if (sel) attroff(A_REVERSE);
     }
 
-    drawBorder(rows - 3, cols);
-    if (!statusMsg.empty()) mvprintw(rows - 2, 2, "%s", statusMsg.c_str());
-    drawBorder(rows - 1, cols);
-    mvprintw(rows - 1, 2, "j/k Move   Enter Install here   Esc Back");
+    mvhline(rows - 3, 0, ACS_HLINE, cols);
+    if (!statusMsg.empty())
+        mvprintw(rows - 2, 2, "%s", statusMsg.c_str());
+    mvhline(rows - 1, 0, ACS_HLINE, cols);
+    mvprintw(rows - 1, 2, "j/k: move   enter: install here   esc: back");
 }
 
-// ── action handlers ───────────────────────────────────────────────────────────
+// ── rebuild output ────────────────────────────────────────────────────────────
 
-void TUI::runSearch() {
-    if (searchQuery.empty()) {
-        searchResults.clear();
-        return;
-    }
-    PackageSearcher searcher;
-    searchResults = searcher.search(searchQuery);
-    resultCursor  = 0;
-}
-
-void TUI::doInstall(const InstallTarget& target) {
-    std::string pkgToInsert = target.usesWithPkgs
-        ? pendingResult.packageName
-        : pendingResult.getPkgsAttribute();
-
-    PackageInserter inserter;
-    if (!inserter.insertPackage(target, pkgToInsert)) {
-        setStatus("Error: could not insert package into file.");
-        return;
-    }
-
-    setStatus("Running nixos-rebuild switch...");
-    RebuildManager rebuild;
-    bool ok = rebuild.rebuild();
-    showRebuildOutput(rebuild.getOutput(), ok);
-}
-
-void TUI::doRemove() {
-    ConfigEditor editor;
-    if (!editor.removePackages(installed)) {
-        setStatus("Error: could not remove packages.");
-        return;
-    }
-
-    setStatus("Running nixos-rebuild switch...");
-    RebuildManager rebuild;
-    bool ok = rebuild.rebuild();
-    showRebuildOutput(rebuild.getOutput(), ok);
-}
-
-void TUI::showRebuildOutput(const std::string& out, bool ok) {
+void TUI::drawRebuildOutput(const std::string& out, bool ok) {
     int rows, cols;
     getmaxyx(stdscr, rows, cols);
     clear();
 
-    attron(A_BOLD);
-    mvprintw(0, 0, ok ? "dotman  –  Rebuild succeeded"
-                      : "dotman  –  Rebuild FAILED");
-    attroff(A_BOLD);
-    mvhline(1, 0, ACS_HLINE, cols);
+    attron(A_REVERSE | A_BOLD);
+    mvprintw(0, 0, "%-*s", cols,
+        ok ? " dotman – Rebuild succeeded" : " dotman – Rebuild FAILED");
+    attroff(A_REVERSE | A_BOLD);
 
-    // Print as many lines of output as fit
-    std::istringstream stream(out);
+    drawBox(1, 0, rows - 3, cols);
+
+    std::istringstream ss(out);
     std::string line;
     int row = 2;
-    while (std::getline(stream, line) && row < rows - 3) {
-        mvprintw(row++, 2, "%s", truncate(line, cols - 4).c_str());
-    }
+    while (std::getline(ss, line) && row < rows - 4)
+        mvprintw(row++, 2, "%s", trunc(line, cols - 4).c_str());
 
     mvhline(rows - 2, 0, ACS_HLINE, cols);
-    mvprintw(rows - 1, 2, "Press any key to continue...");
+    mvprintw(rows - 1, 2, "press any key to continue");
     refresh();
     getch();
+}
+
+// ── search ────────────────────────────────────────────────────────────────────
+
+void TUI::triggerSearch() {
+    isSearching = true;
+    searchPending = false;
+    // Redraw to show "searching…" before the blocking call
+    clear();
+    drawSearch();
+    refresh();
+
+    PackageSearcher searcher;
+    searchResults = searcher.search(searchQuery);
+    resultCursor  = 0;
+    isSearching   = false;
+}
+
+// ── install / remove ──────────────────────────────────────────────────────────
+
+void TUI::doInstall(const InstallTarget& target) {
+    std::string pkg = target.usesWithPkgs
+        ? pendingResult.packageName
+        : pendingResult.getPkgsAttribute();
+
+    PackageInserter inserter;
+    if (!inserter.insertPackage(target, pkg)) {
+        statusMsg = "Error: could not write to file.";
+        return;
+    }
+    RebuildManager rebuild;
+    bool ok = rebuild.rebuild();
+    drawRebuildOutput(rebuild.getOutput(), ok);
+}
+
+void TUI::doRemove() {
+    bool any = false;
+    for (auto& p : installed) if (p.markedForDeletion) { any = true; break; }
+    if (!any) return;
+
+    ConfigEditor editor;
+    if (!editor.removePackages(installed)) {
+        statusMsg = "Error: could not remove packages.";
+        return;
+    }
+    RebuildManager rebuild;
+    bool ok = rebuild.rebuild();
+    drawRebuildOutput(rebuild.getOutput(), ok);
 }
 
 // ── main loop ─────────────────────────────────────────────────────────────────
@@ -254,70 +298,86 @@ void TUI::run() {
     noecho();
     keypad(stdscr, TRUE);
     curs_set(0);
+    // halfdelay: getch() returns ERR after N tenths of a second with no input
+    // We use 1 tenth (100 ms) so we can poll for debounce expiry
+    halfdelay(1);
 
-    std::string lastQuery;
+    lastKeystroke  = Clock::now();
+    searchPending  = false;
+    isSearching    = false;
 
     while (true) {
-        // Live search: re-run whenever query changes
-        if (mode == MODE_SEARCH && searchQuery != lastQuery) {
-            lastQuery = searchQuery;
-            runSearch();
+        // Check debounce: 600 ms after last keystroke → fire search
+        if (mode == MODE_SEARCH && searchPending && !isSearching) {
+            auto elapsed = std::chrono::duration_cast<Ms>(
+                Clock::now() - lastKeystroke).count();
+            if (elapsed >= 600) {
+                triggerSearch();
+            }
         }
 
         clear();
         switch (mode) {
-            case MODE_LIST:         drawList();         break;
-            case MODE_SEARCH:       drawSearch();       break;
+            case MODE_LIST:          drawList();         break;
+            case MODE_SEARCH:        drawSearch();       break;
             case MODE_SELECT_MODULE: drawModuleSelect(); break;
         }
         refresh();
 
-        int ch = getch();
+        int ch = getch();  // returns ERR on timeout
 
-        // ── MODE_LIST ────────────────────────────────────────────────────────
         if (mode == MODE_LIST) {
-            if (ch == 'q' || ch == 'Q') {
-                break;
-            } else if (ch == 'w' || ch == 'W') {
-                doRemove();
-            } else if (ch == 'a' || ch == 'A') {
+            if      (ch == 'q' || ch == 'Q')  { break; }
+            else if (ch == 'w' || ch == 'W')  { doRemove(); }
+            else if (ch == 'a' || ch == 'A')  {
                 mode = MODE_SEARCH;
                 searchQuery.clear();
                 searchResults.clear();
-                lastQuery = "\xFF"; // force refresh
-            } else if (ch == 'j' || ch == KEY_DOWN) {
+                searchPending = false;
+                isSearching   = false;
+            }
+            else if (ch == 'j' || ch == KEY_DOWN) {
                 if (listCursor < (int)installed.size() - 1) listCursor++;
-            } else if (ch == 'k' || ch == KEY_UP) {
+            }
+            else if (ch == 'k' || ch == KEY_UP) {
                 if (listCursor > 0) listCursor--;
-            } else if (ch == 'd' || ch == 'D') {
-                if (!installed.empty())
-                    installed[listCursor].markedForDeletion =
-                        !installed[listCursor].markedForDeletion;
+            }
+            else if ((ch == 'd' || ch == 'D') && !installed.empty()) {
+                installed[listCursor].markedForDeletion =
+                    !installed[listCursor].markedForDeletion;
             }
 
-        // ── MODE_SEARCH ──────────────────────────────────────────────────────
         } else if (mode == MODE_SEARCH) {
             if (ch == 27) {   // ESC
+                nocbreak(); cbreak();  // restore blocking getch
                 mode = MODE_LIST;
             } else if (ch == '\n' || ch == KEY_ENTER) {
                 if (!searchResults.empty()) {
                     pendingResult = searchResults[resultCursor];
                     moduleCursor  = 0;
+                    statusMsg.clear();
+                    nocbreak(); cbreak();  // restore blocking getch
                     mode = MODE_SELECT_MODULE;
                 }
             } else if (ch == KEY_BACKSPACE || ch == 127) {
-                if (!searchQuery.empty()) searchQuery.pop_back();
+                if (!searchQuery.empty()) {
+                    searchQuery.pop_back();
+                    lastKeystroke = Clock::now();
+                    searchPending = true;
+                }
             } else if (ch == 'j' || ch == KEY_DOWN) {
                 if (resultCursor < (int)searchResults.size() - 1) resultCursor++;
             } else if (ch == 'k' || ch == KEY_UP) {
                 if (resultCursor > 0) resultCursor--;
-            } else if (ch >= 32 && ch < 127) {
+            } else if (ch != ERR && ch >= 32 && ch < 127) {
                 searchQuery += (char)ch;
+                lastKeystroke = Clock::now();
+                searchPending = true;
             }
 
-        // ── MODE_SELECT_MODULE ───────────────────────────────────────────────
         } else if (mode == MODE_SELECT_MODULE) {
-            if (ch == 27) {   // ESC – back to search
+            if (ch == 27) {   // ESC
+                halfdelay(1);
                 mode = MODE_SEARCH;
             } else if (ch == '\n' || ch == KEY_ENTER) {
                 if (!installTargets.empty()) {
