@@ -1,4 +1,4 @@
-#include "configEditor.h"
+#include "core/configEditor.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>

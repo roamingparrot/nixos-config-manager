@@ -1,5 +1,5 @@
-#include "moduleSelector.h"
-#include "fileSyntaxDetector.h"
+#include "core/moduleSelector.h"
+#include "core/fileSyntaxDetector.h"
 #include <fstream>
 #include <iostream>
 

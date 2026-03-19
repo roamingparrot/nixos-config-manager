@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include "../models/packageEntry.h"
+#include "models/packageEntry.h"
 
 /**
  * @brief Safely modifies Nix configuration files

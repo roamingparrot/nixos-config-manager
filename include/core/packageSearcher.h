@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include "../models/searchResult.h"
+#include "models/searchResult.h"
 
 /**
  * @brief Searches for packages using nix search

@@ -1,4 +1,4 @@
-#include "tui.h"
+#include "ui/tui.h"
 #include <ncurses.h>
 
 TUI::TUI() 

@@ -3,9 +3,9 @@
 
 #include <string>
 #include <vector>
-#include "../models/packageEntry.h"
-#include "../models/searchResult.h"
-#include "../models/installTarget.h"
+#include "models/packageEntry.h"
+#include "models/searchResult.h"
+#include "models/installTarget.h"
 
 /**
  * @brief TUI mode states

@@ -1,4 +1,4 @@
-#include "configParser.h"
+#include "core/configParser.h"
 #include <iostream>
 #include <regex>
 #include <sstream>

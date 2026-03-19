@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include "../models/installTarget.h"
+#include "models/installTarget.h"
 
 /**
  * @brief Selects target modules for package installation

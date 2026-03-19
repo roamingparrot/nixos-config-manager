@@ -2,7 +2,7 @@
 #define PACKAGE_INSERTER_H
 
 #include <string>
-#include "../models/installTarget.h"
+#include "models/installTarget.h"
 
 /**
  * @brief Inserts packages into Nix configuration files

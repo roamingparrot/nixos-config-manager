@@ -1,4 +1,4 @@
-#include "rebuildManager.h"
+#include "core/rebuildManager.h"
 #include <iostream>
 #include <memory>
 #include <stdexcept>

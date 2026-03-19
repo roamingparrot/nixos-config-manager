@@ -2,7 +2,7 @@
 #define FILE_SYNTAX_DETECTOR_H
 
 #include <string>
-#include "../models/installTarget.h"
+#include "models/installTarget.h"
 
 /**
  * @brief Detects syntax patterns in Nix configuration files

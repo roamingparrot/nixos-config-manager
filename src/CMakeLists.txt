@@ -13,6 +13,7 @@ if(NOT NCURSES_LIBRARY OR NOT NCURSES_INCLUDE_DIR)
 endif()
 
 # Include directories
+include_directories(${CMAKE_SOURCE_DIR}/../include)
 include_directories(${NCURSES_INCLUDE_DIR})
 include_directories(${NCURSES_INCLUDE_DIR}/ncursesw)
 

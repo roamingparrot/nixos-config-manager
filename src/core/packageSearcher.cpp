@@ -1,4 +1,4 @@
-#include "packageSearcher.h"
+#include "core/packageSearcher.h"
 #include <iostream>
 #include <sstream>
 #include <cstdio>

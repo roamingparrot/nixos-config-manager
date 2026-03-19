@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 #include <set>
-#include "../models/moduleInfo.h"
+#include "models/moduleInfo.h"
 
 /**
  * @brief Discovers all NixOS configuration files by following imports

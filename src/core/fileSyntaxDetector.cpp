@@ -1,4 +1,4 @@
-#include "fileSyntaxDetector.h"
+#include "core/fileSyntaxDetector.h"
 #include <fstream>
 #include <sstream>
 #include <iostream>
