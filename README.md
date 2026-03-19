@@ -41,19 +41,16 @@ NixOS configurations are modular. This tool follows imports to build a unified v
 
 ## Controls
 
-| Key   | Action                  |
-|-------|-------------------------|
-| j / ↓ | Move down               |
-| k / ↑ | Move up                 |
-| d     | Remove selected package |
-| q     | Quit                    |
-| /     | Search                  |
+| Key   | Action                   |
+|-------|--------------------------|
+| j / ↓ | Move down                |
+| k / ↑ | Move up                  |
+| d     | Mark package for deletion |
+| w     | Save changes and rebuild |
+| q     | Quit without saving     |
+| /     | Search                   |
 
-## Safety
-
-- Automatic `.bak` backups before modifications
-- Minimal edits preserve formatting and comments
-- Error output shown if rebuild fails
+Nix handles backups via git in the NixOS configuration directory.
 
 ## Parsing Limitations
 
