@@ -9,12 +9,21 @@ Unlike simple tools that modify a single `configuration.nix`, this project is de
 - **Multi-File Support** - Parse `imports`, resolve relative paths, and recursively load all modules
 - **Package Discovery** - Detect all `environment.systemPackages` blocks and extract package names
 - **TUI Interface** - View all packages aggregated in one place with their source file
-- **Safe Editing** - Remove packages from their source file with automatic backups
+- **Safe Editing** - Remove packages from their source file, preserving formatting
 - **Rebuild Integration** - Run `nixos-rebuild switch` after changes
 
 ## Installation
 
+### Quick Build (Recommended)
+
 ```bash
+./build.sh
+```
+
+### Manual Build
+
+```bash
+cd src
 mkdir build && cd build
 cmake ..
 make
@@ -22,9 +31,13 @@ make
 
 ## Usage
 
+Run the TUI to manage packages:
+
 ```bash
-sudo ./dotman
+sudo ./src/build/dotman
 ```
+
+**Note:** Root privileges are required to edit `/etc/nixos/` files and run `nixos-rebuild`.
 
 ## Key Concept
 
@@ -47,10 +60,9 @@ NixOS configurations are modular. This tool follows imports to build a unified v
 | k / ↑ | Move up                  |
 | d     | Mark package for deletion |
 | w     | Save changes and rebuild |
-| q     | Quit without saving     |
-| /     | Search                   |
+| q     | Quit without saving      |
 
-Nix handles backups via git in the NixOS configuration directory.
+**Note:** Nix handles configuration backups via generations. You can rollback using `nixos-rebuild --rollback`.
 
 ## Parsing Limitations
 
