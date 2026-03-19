@@ -1,216 +1,45 @@
 # NixOS TUI Configuration Editor
 
-## Overview
-
 A terminal-based (TUI) application written in C++ for managing system packages on NixOS by editing declarative configuration files across multiple modules.
 
 Unlike simple tools that modify a single `configuration.nix`, this project is designed to work with real-world setups where configuration is split across multiple imported files.
 
----
-
-## Goals
-
-### Current Scope (MVP)
-
-- Discover and read all NixOS configuration modules
-- Resolve `imports` recursively across files
-- Locate all definitions of `environment.systemPackages`
-- Aggregate and display all system packages in a single TUI
-- Show which file each package is defined in
-- Allow users to remove a package from its source file
-- Safely write changes back to the correct file
-- Trigger `nixos-rebuild switch`
-
----
-
-## Key Concept
-
-NixOS configurations are modular.
-
-**configuration.nix**
-```nix
-{
-  imports = [
-    ./hardware-configuration.nix
-    ./packages.nix
-  ];
-}
-```
-
-**packages.nix**
-```nix
-{
-  environment.systemPackages = with pkgs; [
-    git
-    neovim
-  ];
-}
-```
-
-This tool must follow imports, build a unified view, and edit the correct source file.
-
----
-
 ## Features
 
-### Multi-File Support
+- **Multi-File Support** - Parse `imports`, resolve relative paths, and recursively load all modules
+- **Package Discovery** - Detect all `environment.systemPackages` blocks and extract package names
+- **TUI Interface** - View all packages aggregated in one place with their source file
+- **Safe Editing** - Remove packages from their source file with automatic backups
+- **Rebuild Integration** - Run `nixos-rebuild switch` after changes
 
-- Parse `imports = [ ... ]`
-- Resolve relative paths
-- Recursively load modules
-- Avoid duplicate processing
+## Installation
 
-### Package Discovery
-
-- Detect all `environment.systemPackages` blocks
-- Extract package names
-- Track origin file path
-
-### TUI Interface
-
-Display aggregated packages:
-```
-> git        (/etc/nixos/packages.nix)
-  firefox    (/etc/nixos/configuration.nix)
-  neovim     (/etc/nixos/dev/tools.nix)
+```bash
+mkdir build && cd build
+cmake ..
+make
 ```
 
-### Editing
+## Usage
 
-When removing a package:
-- Identify its source file
-- Modify only that file
-- Preserve formatting as much as possible
-
-### Rebuild Integration
-
-After changes, run `nixos-rebuild switch`:
-- Show progress
-- Display errors if rebuild fails
-
----
-
-## Architecture
-
-### 1. File Discovery
-
-Responsible for starting at `/etc/nixos/configuration.nix` and finding all imported files.
-
-```cpp
-class ModuleResolver {
-public:
-    std::vector<std::string> resolveAllModules(const std::string& entryFile);
-};
-```
-
-### 2. Config Parser
-
-Extracts package definitions from each file.
-
-```cpp
-struct PackageEntry {
-    std::string name;
-    std::string filePath;
-};
-
-class ConfigParser {
-public:
-    std::vector<PackageEntry> extractPackages(const std::string& fileContent,
-                                              const std::string& filePath);
-};
-```
-
-### 3. Editor
-
-Handles safe modification of files.
-
-```cpp
-class ConfigEditor {
-public:
-    bool removePackage(const PackageEntry& entry);
-};
-```
-
-### 4. Rebuild Manager
-
-```cpp
-class RebuildManager {
-public:
-    bool rebuild();
-};
-```
-
-### 5. TUI Layer
-
-Displays aggregated package list and handles navigation and actions.
-
----
-
-## Parsing Strategy
-
-### Important Constraint
-
-This project does **not implement a full Nix parser**.
-
-Instead, it uses:
-- Pattern-based extraction
-- Bracket matching for `[ ... ]`
-- Line-based manipulation
-
-### Supported Pattern
-
-```nix
-environment.systemPackages = with pkgs; [
-  git
-  neovim
-];
-```
-
-### Limitations
-
-- Dynamic expressions may not be detected:
-  ```nix
-  environment.systemPackages = someFunction pkgs;
-  ```
-- Packages generated via functions may be invisible
-- Complex abstractions are out of scope for MVP
-
----
-
-## Safety Features
-
-### Backups
-
-Before modifying any file, create `<file>.bak`
-
-### Minimal Edits
-
-- Only modify the exact package list
-- Do not reformat entire files
-- Preserve comments where possible
-
-### Failure Handling
-
-If rebuild fails:
-- Show error output
-- Do not delete backups
-
----
-
-## Permissions
-
-Required for:
-- Editing `/etc/nixos/*`
-- Running rebuild
-
-Recommended usage:
-```
+```bash
 sudo ./dotman
 ```
 
----
+## Key Concept
 
-## UI Controls
+NixOS configurations are modular. This tool follows imports to build a unified view of all packages across your configuration files, then edits only the correct source file when removing a package.
+
+**Example structure:**
+```nix
+# configuration.nix
+{ imports = [ ./hardware-configuration.nix ./packages.nix ]; }
+
+# packages.nix
+{ environment.systemPackages = with pkgs; [ git neovim ]; }
+```
+
+## Controls
 
 | Key   | Action                  |
 |-------|-------------------------|
@@ -220,34 +49,24 @@ sudo ./dotman
 | q     | Quit                    |
 | /     | Search                  |
 
----
+## Safety
 
-## Project Structure
+- Automatic `.bak` backups before modifications
+- Minimal edits preserve formatting and comments
+- Error output shown if rebuild fails
 
-```
-src/
- ├── core/
- │    ├── moduleResolver.cpp
- │    ├── configParser.cpp
- │    ├── configEditor.cpp
- │    └── rebuildManager.cpp
- ├── ui/
- │    └── tui.cpp
- ├── main.cpp
- └── CMakeLists.txt
-```
+## Parsing Limitations
 
----
+This is **not** a full Nix parser. It uses pattern-based extraction for the common form:
 
-## Building
-
-```bash
-mkdir build && cd build
-cmake ..
-make
+```nix
+environment.systemPackages = with pkgs; [
+  git
+  neovim
+];
 ```
 
----
+Dynamic expressions like `environment.systemPackages = someFunction pkgs;` are not detected.
 
 ## License
 
