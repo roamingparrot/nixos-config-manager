@@ -4,49 +4,65 @@
 #include <string>
 #include <vector>
 #include "../models/packageEntry.h"
+#include "../models/searchResult.h"
+#include "../models/installTarget.h"
+
+/**
+ * @brief TUI mode states
+ */
+enum TUIMode {
+    MODE_LIST,           // View installed packages, mark for deletion
+    MODE_SEARCH_INPUT,   // Enter search query
+    MODE_SEARCH_RESULTS, // View search results
+    MODE_SELECT_MODULE,  // Choose installation target
+    MODE_CONFIRM        // Confirm action
+};
 
 /**
  * @brief Terminal User Interface for package management
- * 
- * This class handles the display and interaction with the user
- * through a terminal-based interface.
  */
 class TUI {
 private:
-    std::vector<PackageEntry> packages;
-    int cursorPosition;
-    bool searchMode;
+    // State
+    TUIMode currentMode;
+    std::vector<PackageEntry> installedPackages;
+    std::vector<SearchResult> searchResults;
+    std::vector<InstallTarget> installTargets;
+    
+    // Cursor positions for each mode
+    int listCursor;
+    int searchCursor;
+    int moduleCursor;
+    
+    // User input
     std::string searchQuery;
     bool shouldSave;
     
-    /**
-     * @brief Draw the TUI interface
-     */
-    void draw();
+    // Selected items
+    SearchResult selectedSearchResult;
+    InstallTarget selectedTarget;
     
+    // Drawing methods
+    void drawListMode();
+    void drawSearchInputMode();
+    void drawSearchResultsMode();
+    void drawModuleSelectMode();
+
 public:
-    /**
-     * @brief Constructor
-     */
     TUI();
     
-    /**
-     * @brief Initialize the TUI with packages
-     * @param packages Vector of packages to display
-     */
     void initialize(const std::vector<PackageEntry>& packages);
-    
-    /**
-     * @brief Run the TUI main loop
-     * @return True if user wants to save, false otherwise
-     */
     bool run();
-    
-    /**
-     * @brief Get packages (potentially modified)
-     * @return Vector of packages
-     */
     std::vector<PackageEntry> getPackages() const;
+    
+    // Mode-specific setters
+    void setSearchResults(const std::vector<SearchResult>& results);
+    void setInstallTargets(const std::vector<InstallTarget>& targets);
+    
+    // Get selected items
+    SearchResult getSelectedSearchResult() const;
+    InstallTarget getSelectedTarget() const;
+    std::string getSearchQuery() const;
 };
 
 #endif // TUI_H
