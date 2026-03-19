@@ -74,6 +74,7 @@ int ConfigParser::findMatchingBracket(const std::string& content, int start) {
 }
 
 std::vector<std::string> ConfigParser::extractPackageNames(const std::string& block, int startLine) {
+    (void)startLine; // Unused for now
     std::vector<std::string> packages;
     
     // Regex to match package names (word-only lines)

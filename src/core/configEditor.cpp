@@ -14,10 +14,10 @@ bool ConfigEditor::removePackage(const PackageEntry& entry) {
 
 bool ConfigEditor::removePackages(const std::vector<PackageEntry>& packages) {
     // Group packages by file path
-    std::map<std::string, std::vector<const PackageEntry*>> packagesByFile;
+    std::map<std::string, std::vector<std::string>> packagesByFile;
     for (const PackageEntry& package : packages) {
         if (package.markedForDeletion) {
-            packagesByFile[package.filePath].push_back(&package);
+            packagesByFile[package.filePath].push_back(package.name);
         }
     }
     
@@ -25,43 +25,48 @@ bool ConfigEditor::removePackages(const std::vector<PackageEntry>& packages) {
     bool success = true;
     for (const auto& pair : packagesByFile) {
         const std::string& filePath = pair.first;
-        const std::vector<const PackageEntry*>& filePackages = pair.second;
+        const std::vector<std::string>& packagesToRemove = pair.second;
         
         try {
             // Read file content
             std::string content = readFile(filePath);
-            
-            // Sort packages by line number in descending order for safe removal
-            std::vector<const PackageEntry*> sortedPackages = filePackages;
-            std::sort(sortedPackages.begin(), sortedPackages.end(), 
-                     [](const PackageEntry* a, const PackageEntry* b) {
-                         return a->startLine > b->startLine;
-                     });
-            
-            // Remove each package line by line
-            std::vector<std::string> lines = {};
+            std::vector<std::string> lines;
             std::stringstream ss(content);
             std::string line;
-            int lineNumber = 1;
             
             while (std::getline(ss, line, '\n')) {
                 lines.push_back(line);
-                lineNumber++;
             }
             
-            // Remove package lines (in reverse order to maintain line numbers)
-            for (const PackageEntry* package : sortedPackages) {
-                if (package->startLine > 0 && package->startLine <= (int)lines.size()) {
-                    // Remove the line
-                    lines.erase(lines.begin() + package->startLine - 1);
+            // Remove package lines by matching package names
+            std::vector<std::string> newLines;
+            for (const std::string& currentLine : lines) {
+                bool shouldRemove = false;
+                
+                // Check if this line contains a package to remove
+                for (const std::string& pkgName : packagesToRemove) {
+                    // Match lines that are just the package name (with optional whitespace)
+                    std::string trimmedLine = currentLine;
+                    trimmedLine.erase(0, trimmedLine.find_first_not_of(" \t"));
+                    trimmedLine.erase(trimmedLine.find_last_not_of(" \t") + 1);
+                    
+                    if (trimmedLine == pkgName) {
+                        shouldRemove = true;
+                        std::cout << "  Removing: " << pkgName << std::endl;
+                        break;
+                    }
+                }
+                
+                if (!shouldRemove) {
+                    newLines.push_back(currentLine);
                 }
             }
             
             // Reconstruct content
             std::stringstream newContent;
-            for (size_t i = 0; i < lines.size(); ++i) {
-                newContent << lines[i];
-                if (i < lines.size() - 1) {
+            for (size_t i = 0; i < newLines.size(); ++i) {
+                newContent << newLines[i];
+                if (i < newLines.size() - 1) {
                     newContent << "\n";
                 }
             }
