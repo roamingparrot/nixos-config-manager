@@ -7,62 +7,52 @@
 #include "models/searchResult.h"
 #include "models/installTarget.h"
 
-/**
- * @brief TUI mode states
- */
 enum TUIMode {
-    MODE_LIST,           // View installed packages, mark for deletion
-    MODE_SEARCH_INPUT,   // Enter search query
-    MODE_SEARCH_RESULTS, // View search results
-    MODE_SELECT_MODULE,  // Choose installation target
-    MODE_CONFIRM        // Confirm action
+    MODE_LIST,          // Browse installed packages
+    MODE_SEARCH,        // Live search + results in one view
+    MODE_SELECT_MODULE  // Pick which file to install into
 };
 
 /**
- * @brief Terminal User Interface for package management
+ * @brief Self-contained TUI. Owns all search/install logic so it
+ *        never needs to exit back to main to perform an action.
  */
 class TUI {
 private:
-    // State
-    TUIMode currentMode;
-    std::vector<PackageEntry> installedPackages;
-    std::vector<SearchResult> searchResults;
+    // ── state ─────────────────────────────────────────────
+    TUIMode mode;
+    std::vector<PackageEntry>  installed;
+    std::vector<SearchResult>  searchResults;
     std::vector<InstallTarget> installTargets;
-    
-    // Cursor positions for each mode
-    int listCursor;
-    int searchCursor;
-    int moduleCursor;
-    
-    // User input
+
+    int  listCursor;
+    int  resultCursor;
+    int  moduleCursor;
+
     std::string searchQuery;
-    bool shouldSave;
-    
-    // Selected items
-    SearchResult selectedSearchResult;
-    InstallTarget selectedTarget;
-    
-    // Drawing methods
-    void drawListMode();
-    void drawSearchInputMode();
-    void drawSearchResultsMode();
-    void drawModuleSelectMode();
+    std::string statusMsg;   // one-line feedback at bottom
+
+    SearchResult  pendingResult;  // chosen from search before module pick
+    bool          actionDone;     // set true once install/remove finished
+
+    // ── drawing ───────────────────────────────────────────
+    void drawBorder(int row, int cols);
+    void drawList();
+    void drawSearch();
+    void drawModuleSelect();
+    void setStatus(const std::string& msg);
+
+    // ── search helpers ────────────────────────────────────
+    void runSearch();                      // calls nix-env, updates searchResults
+    void doInstall(const InstallTarget&);  // insert + rebuild
+    void doRemove();                       // remove marked + rebuild
+    void showRebuildOutput(const std::string& out, bool ok);
 
 public:
     TUI();
-    
-    void initialize(const std::vector<PackageEntry>& packages);
-    bool run();
-    std::vector<PackageEntry> getPackages() const;
-    
-    // Mode-specific setters
-    void setSearchResults(const std::vector<SearchResult>& results);
-    void setInstallTargets(const std::vector<InstallTarget>& targets);
-    
-    // Get selected items
-    SearchResult getSelectedSearchResult() const;
-    InstallTarget getSelectedTarget() const;
-    std::string getSearchQuery() const;
+    void initialize(const std::vector<PackageEntry>& pkgs,
+                    const std::vector<InstallTarget>& targets);
+    void run();
 };
 
 #endif // TUI_H
