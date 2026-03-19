@@ -26,6 +26,7 @@ set(SOURCES
     core/packageSearcher.cpp
     core/fileSyntaxDetector.cpp
     core/moduleSelector.cpp
+    core/packageInserter.cpp
     ui/tui.cpp
 )
 
