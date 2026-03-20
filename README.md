@@ -22,14 +22,14 @@ Unlike simple tools that modify a single `configuration.nix`, this project is de
 Once merged into nixpkgs, install with:
 
 ```bash
-nix-env -iA nixpkgs.dotman
+nix-env -iA nixpkgs.nixedit
 ```
 
 Or add to your NixOS configuration:
 
 ```nix
 environment.systemPackages = with pkgs; [
-  dotman
+  nixedit
 ];
 ```
 
@@ -62,7 +62,7 @@ make
 Run the TUI to manage packages:
 
 ```bash
-sudo ./src/build/dotman
+sudo ./src/build/nixedit
 ```
 
 **Note:** Root privileges are required to edit `/etc/nixos/` files and run `nixos-rebuild`.
@@ -70,7 +70,7 @@ sudo ./src/build/dotman
 ## Workflow
 
 ### Installing a Package
-1. Launch the TUI: `sudo ./src/build/dotman`
+1. Launch the TUI: `sudo ./src/build/nixedit`
 2. Press `a` to open package search
 3. Type the package name (e.g., "firefox")
 4. Press Enter to search
@@ -79,7 +79,7 @@ sudo ./src/build/dotman
 7. Package is automatically added and system rebuilds
 
 ### Removing a Package
-1. Launch the TUI: `sudo ./src/build/dotman`
+1. Launch the TUI: `sudo ./src/build/nixedit`
 2. Navigate to package with `j`/`k`
 3. Press `d` to mark for deletion
 4. Press `w` to save and rebuild

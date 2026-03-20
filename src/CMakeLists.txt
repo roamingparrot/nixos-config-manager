@@ -32,10 +32,10 @@ set(SOURCES
 )
 
 # Create executable
-add_executable(dotman ${SOURCES})
+add_executable(nixedit ${SOURCES})
 
 # Link libraries
-target_link_libraries(dotman ${NCURSES_LIBRARY})
+target_link_libraries(nixedit ${NCURSES_LIBRARY})
 
 # Compiler flags
-target_compile_options(dotman PRIVATE -Wall -Wextra)
+target_compile_options(nixedit PRIVATE -Wall -Wextra)

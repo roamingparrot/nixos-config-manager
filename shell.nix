@@ -14,7 +14,7 @@ pkgs.mkShell {
     echo ""
     echo "Available commands:"
     echo "  ./build.sh          - Build the project"
-    echo "  sudo ./src/build/dotman - Run the application"
+    echo "  sudo ./src/build/nixedit - Run the application"
     echo ""
   '';
 }

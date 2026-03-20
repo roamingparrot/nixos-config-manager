@@ -6,7 +6,7 @@
 }:
 
 stdenv.mkDerivation rec {
-  pname = "dotman";
+  pname = "nixedit";
   version = "0.1.0";
 
   src = fetchFromGitHub {
@@ -29,7 +29,7 @@ stdenv.mkDerivation rec {
 
   installPhase = ''
     mkdir -p $out/bin
-    cp dotman $out/bin/
+    cp nixedit $out/bin/
   '';
 
   meta = with lib; {
@@ -43,7 +43,7 @@ stdenv.mkDerivation rec {
     homepage = "https://github.com/roamingparrot/nixos-config-manager";
     license = licenses.mit;
     maintainers = [ ];
-    mainProgram = "dotman";
+    mainProgram = "nixedit";
     platforms = platforms.linux;
   };
 }

@@ -5,7 +5,7 @@
 }:
 
 stdenv.mkDerivation rec {
-  pname = "dotman";
+  pname = "nixedit";
   version = "0.1.0";
 
   src = lib.cleanSourceWith {
@@ -33,7 +33,7 @@ stdenv.mkDerivation rec {
 
   installPhase = ''
     mkdir -p $out/bin
-    cp dotman $out/bin/
+    cp nixedit $out/bin/
   '';
 
   meta = with lib; {
@@ -47,7 +47,7 @@ stdenv.mkDerivation rec {
     homepage = "https://github.com/anomalyco/dotman";
     license = licenses.mit;
     maintainers = [ ];
-    mainProgram = "dotman";
+    mainProgram = "nixedit";
     platforms = platforms.linux;
   };
 }

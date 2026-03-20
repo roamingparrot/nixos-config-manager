@@ -19,7 +19,7 @@ nix-shell -p cmake ncurses --run "
     make
     echo ''
     echo 'Build complete!'
-    echo 'Executable: src/build/dotman'
+    echo 'Executable: src/build/nixedit'
     echo ''
-    echo 'Run with: sudo ./src/build/dotman'
+    echo 'Run with: sudo ./src/build/nixedit'
 "

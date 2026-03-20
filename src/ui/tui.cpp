@@ -78,7 +78,7 @@ void TUI::drawList() {
 
     // Title bar
     attron(A_REVERSE | A_BOLD);
-    mvprintw(0, 0, "%-*s", cols, " dotman – NixOS package manager");
+    mvprintw(0, 0, "%-*s", cols, " nixedit – NixOS package manager");
     attroff(A_REVERSE | A_BOLD);
 
     // Outer box  (row 1 … rows-4)
@@ -141,7 +141,7 @@ void TUI::drawSearch() {
 
     // Title bar
     attron(A_REVERSE | A_BOLD);
-    mvprintw(0, 0, "%-*s", cols, " dotman – Add package");
+    mvprintw(0, 0, "%-*s", cols, " nixedit – Add package");
     attroff(A_REVERSE | A_BOLD);
 
     // Search input box (rows 1-3)
@@ -206,7 +206,7 @@ void TUI::drawModuleSelect() {
     getmaxyx(stdscr, rows, cols);
 
     attron(A_REVERSE | A_BOLD);
-    mvprintw(0, 0, "%-*s", cols, " dotman – Select installation target");
+    mvprintw(0, 0, "%-*s", cols, " nixedit – Select installation target");
     attroff(A_REVERSE | A_BOLD);
 
     // Info box (rows 1-5)
@@ -258,7 +258,7 @@ void TUI::drawRebuildOutput(const std::string& out, bool ok) {
 
     attron(A_REVERSE | A_BOLD);
     mvprintw(0, 0, "%-*s", cols,
-        ok ? " dotman – Rebuild succeeded" : " dotman – Rebuild FAILED");
+        ok ? " nixedit – Rebuild succeeded" : " nixedit – Rebuild FAILED");
     attroff(A_REVERSE | A_BOLD);
 
     drawBox(1, 0, rows - 3, cols);
