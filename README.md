@@ -17,7 +17,32 @@ Unlike simple tools that modify a single `configuration.nix`, this project is de
 
 ## Installation
 
-### Quick Build (Recommended)
+### From nixpkgs (Coming Soon)
+
+Once merged into nixpkgs, install with:
+
+```bash
+nix-env -iA nixpkgs.dotman
+```
+
+Or add to your NixOS configuration:
+
+```nix
+environment.systemPackages = with pkgs; [
+  dotman
+];
+```
+
+### From Nix (Current)
+
+Build and install using Nix:
+
+```bash
+nix-build
+nix-env -i ./result
+```
+
+### Quick Build (Development)
 
 ```bash
 ./build.sh

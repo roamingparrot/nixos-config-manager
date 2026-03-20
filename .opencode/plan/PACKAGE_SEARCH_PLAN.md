@@ -219,15 +219,13 @@ private:
 // Add to ui/tui.h
 enum TUIMode {
     MODE_LIST,           // View packages, mark for deletion
-    MODE_SEARCH,         // Search for packages
-    MODE_SEARCH_RESULTS, // View search results
-    MODE_SELECT_MODULE,  // Choose install target
-    MODE_REBUILDING     // Show rebuild progress
+    MODE_SEARCH,         // Enter-to-submit search + results
+    MODE_SELECT_MODULE   // Choose install target
 };
 ```
 
 ### Challenge 6.2: Add search mode UI
-- **Trigger**: Press `/` to enter search mode
+- **Trigger**: Press `a` to enter search mode
 - **Display**:
   ```
   Search packages: nvim▋
@@ -245,12 +243,13 @@ enum TUIMode {
 - **Display**: List of SearchResult items
 - **Navigation**: j/k to move, Enter to select for installation
 
-### Challenge 6.4: Implement search-as-you-type
-- **Challenge**: Update results as user types
+### Challenge 6.4: Implement enter-to-submit search
+- **Challenge**: Execute search when user explicitly submits
 - **Solution**: 
-  - Debounce input (wait 300ms after last keystroke)
-  - Execute `nix search` command
-  - Update display
+  - User types query, then presses Enter to execute search
+  - `nix-env -qaP` runs synchronously (blocking call)
+  - Results displayed after search completes
+  - Stale results cleared as the user modifies the query
 
 ### Challenge 6.5: Connect search → module selection → insert → rebuild
 - **Flow**:
@@ -332,6 +331,94 @@ enum TUIMode {
 
 ---
 
+## Phase 10: UX Polish
+
+### Challenge 10.1: Remove "No results" display for empty query
+- **Problem**: With enter-to-submit search, showing "No results for X" clutters the UI when results are empty
+- **Solution**: Remove the "No results for X" message from `drawSearch()`. The status bar already shows "0 results"
+- **Implementation**: In `drawSearch()`, remove the `else if (!isSearching && searchResults.empty())` branch that prints "No results for X"
+
+### Challenge 10.2: Show already-installed packages in search results
+- **Problem**: Users can't tell from search results if a package is already installed
+- **Solution**: During search result display, cross-reference each result against the installed packages list
+- **Implementation**:
+  1. In `drawSearch()`, loop through `installed` to check if `r.packageName` matches any `installed[].name`
+  2. If matched, display `[installed]` next to the package in bold
+  3. This gives immediate feedback before the user selects and confirms installation
+
+### Challenge 10.3: Fix bottom bar hints touching terminal edges
+- **Problem**: The hint bar in the bottom row uses `mvprintw` with width padding that extends to the terminal edge, making hints run into the right-side border character
+- **Solution**: Adjust `printHints()` to leave a 2-character gap from the right edge
+- **Implementation**: Change `trunc(hints, cols - col - 1)` to `trunc(hints, cols - col - 3)` in `printHints()`
+
+### Challenge 10.4: Rework bottom bar to single-line status bar ✅
+- **Problem**: Current 3-row bottom layout creates visual clutter with double horizontal lines:
+  - `rows-3`: horizontal line (separator)
+  - `rows-2`: status info (count/status)
+  - `rows-1`: horizontal line + hints
+- **Solution**: Replace with clean 1-row layout: status info left-aligned, key hints right-aligned
+
+- **Implementation**: ✅ COMPLETE
+  1. ✅ Remove `mvhline(rows-3, ...)` calls in all modes (drawList, drawSearch, drawModuleSelect)
+  2. ✅ Remove `mvhline(rows-1, ...)` calls (bottom border lines)
+  3. ✅ Combine status + hints on single line at `rows-1`:
+     ```
+     <status info left>                           <key hints right>
+     ```
+
+- **Per-mode status lines**:
+  - **MODE_LIST**: `(48 packages  2 marked)           j/k move  d mark  a add  w rebuild  q quit`
+  - **MODE_SEARCH (no results)**: `Type query, press Enter                              esc back`
+  - **MODE_SEARCH (with results)**: `(12 results)                         j/k move  enter select  esc back`
+  - **MODE_SELECT_MODULE**: `Installing: neovim                        j/k move  enter install  esc back`
+
+- **Implementation details**:
+  - ✅ Created helper `printStatusBar(int row, const std::string& status, const std::string& hints, int cols)`
+  - ✅ Calculate available width for hints: `cols - strlen(status) - 2` (2-char gap between sections)
+  - ✅ Uses `mvprintw(row, 0, "%s%*s", status.c_str(), rightPadding, hints.c_str())`
+  - ✅ Replaced old `printHints()` function completely
+  - ✅ All three draw modes (drawList, drawSearch, drawModuleSelect) updated
+
+---
+
+## Phase 11: Distribution (nixpkgs Packaging) ✅
+
+### Challenge 11.1: Create a Nix package expression ✅
+- **Task**: Create a `default.nix` that builds the project using the existing `shell.nix` and `build.sh` infrastructure
+- **Approach**: Use `stdenv.mkDerivation` with `cmake` and `ncurses` as build inputs
+- **Status**: ✅ COMPLETE
+  - Created `default.nix` with proper build configuration
+  - Uses `lib.cleanSourceWith` to filter out build artifacts
+  - Properly handles src/CMakeLists.txt structure with `preConfigure`
+  - Successfully tested with `nix-build`
+  - Binary output: `/nix/store/.../bin/dotman`
+
+### Challenge 11.2: Structure for nixpkgs contribution ✅
+- **Task**: Prepare the project for submission to `nixpkgs` (`pkgs/by-name/do/dotman/`)
+- **Status**: ✅ COMPLETE
+  - Created `NIXPKGS_SUBMISSION.md` with complete submission guide
+  - Updated `README.md` with nixpkgs installation instructions
+  - All requirements met:
+    1. ✅ Binary name matches directory: `dotman`
+    2. ✅ `meta.description`, `meta.longDescription`, `meta.platforms`, `meta.license`, `meta.mainProgram` all set
+    3. ✅ No network calls at build time
+    4. ✅ All dependencies declared explicitly (cmake, ncurses)
+  - Package ready for `pkgs/by-name/do/dotman/package.nix`
+
+### Challenge 11.3: Submit to nixpkgs (Manual Step)
+- **Task**: Follow the nixpkgs contribution workflow
+- **Status**: Ready for submission (requires user action)
+- **Steps** (documented in `NIXPKGS_SUBMISSION.md`):
+  1. Fork `nixpkgs` on GitHub
+  2. Create branch: `add-dotman`
+  3. Add files under `pkgs/by-name/do/dotman/`
+  4. Update `src` to use `fetchFromGitHub` with release tag
+  5. Run `nixpkgs-review` locally to verify the package builds
+  6. Open a PR with a clear description of the tool and its purpose
+- **Reference**: https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/README.md
+
+---
+
 ## Implementation Order
 
 ### Week 1: Foundation
@@ -348,13 +435,18 @@ enum TUIMode {
 7. **Phase 6.1**: Extend TUI state machine
 8. **Phase 6.2**: Add search mode UI
 9. **Phase 6.3**: Add search results mode
-10. **Phase 6.4**: Implement search-as-you-type (debounced)
+10. **Phase 6.4**: Implement enter-to-submit search
 
 ### Week 4: Polish
 11. **Phase 5**: Create PackageInserter and integrate
 12. **Phase 6.5**: Connect full flow (search → select → insert → rebuild)
 13. **Phase 7**: Add duplicate detection
 14. **Phase 8**: Error handling and validation
+
+### Week 5: UX Polish & Distribution
+15. **Phase 10**: UX polish (remove no-results clutter, show installed markers, fix hints)
+16. **Phase 11**: Prepare nixpkgs package expression
+17. **Phase 11.3**: Submit to nixpkgs
 
 ---
 
@@ -381,6 +473,10 @@ src/
 └── ui/
     ├── tui.h/cpp                   (existing, extend)
     └── inputHandler.h/cpp          (existing)
+
+nixpkgs contribution (`pkgs/by-name/do/dotman/`):
+├── default.nix                   # Package derivation
+└── README.md                    # Updated with nixpkgs install instructions
 ```
 
 ---
@@ -397,13 +493,16 @@ src/
 
 ## Success Criteria
 
-✅ User can press `/` to search for packages  
+✅ User can press `a` to search for packages (enter-to-submit)  
 ✅ Search results display name, version, description  
+✅ Already-installed packages are marked `[installed]` in search results  
 ✅ User can select a package and pick target module  
 ✅ Package is inserted in correct format (with/without pkgs.)  
 ✅ Duplicate packages are detected and prevented  
 ✅ `nixos-rebuild switch` runs after successful insertion  
 ✅ All changes are reversible via Nix generations  
+✅ Clean UI with no clutter (no "no results" text, hints don't touch edges)  
+✅ Available in nixpkgs (`nix-env -iA nixpkgs.dotman`)  
 
 ---
 
