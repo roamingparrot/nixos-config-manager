@@ -46,9 +46,28 @@ static std::string trunc(const std::string& s, int max) {
     return s.substr(0, max - 1) + "~";
 }
 
-// Print a keybind hint bar clamped to terminal width
-static void printHints(int row, int col, const char* hints, int cols) {
-    mvprintw(row, col, "%s", trunc(hints, cols - col - 1).c_str());
+
+// Print a status bar with left-aligned status and right-aligned hints
+static void printStatusBar(int row, const std::string& status, const std::string& hints, int cols) {
+    int statusLen = (int)status.size();
+    int hintsLen = (int)hints.size();
+    int gap = 2;
+    
+    std::string displayHints = hints;
+    if (statusLen + gap + hintsLen > cols) {
+        int availableHints = cols - statusLen - gap;
+        if (availableHints > 3) {
+            displayHints = trunc(hints, availableHints);
+        } else {
+            displayHints = "";
+        }
+        hintsLen = (int)displayHints.size();
+    }
+    
+    int padding = cols - statusLen - hintsLen;
+    if (padding < gap) padding = gap;
+    
+    mvprintw(row, 0, "%s%*s", status.c_str(), padding + hintsLen, displayHints.c_str());
 }
 
 // ── MODE_LIST ─────────────────────────────────────────────────────────────────
@@ -104,14 +123,14 @@ void TUI::drawList() {
         if (selected) attroff(A_REVERSE);
     }
 
-    // Status / hints bar
+    // Status bar
     int marked = 0;
     for (auto& p : installed) if (p.markedForDeletion) marked++;
 
-    mvhline(rows - 3, 0, ACS_HLINE, cols);
-    mvprintw(rows - 2, 2, "%zu packages  %d marked", installed.size(), marked);
-    mvhline(rows - 1, 0, ACS_HLINE, cols);
-    printHints(rows - 1, 2, "j/k move   d mark   a add   w save+rebuild   q quit", cols);
+    std::string status = "(" + std::to_string(installed.size()) + " packages  " 
+                       + std::to_string(marked) + " marked)";
+    std::string hints = "j/k move   d mark   a add   w save+rebuild   q quit";
+    printStatusBar(rows - 1, status, hints, cols);
 }
 
 // ── MODE_SEARCH ───────────────────────────────────────────────────────────────
@@ -173,10 +192,11 @@ void TUI::drawSearch() {
     }
 
     // Status bar
-    mvhline(rows - 3, 0, ACS_HLINE, cols);
-    mvprintw(rows - 2, 2, "%zu results", searchResults.size());
-    mvhline(rows - 1, 0, ACS_HLINE, cols);
-    printHints(rows - 1, 2, "type search   j/k move   enter select   esc back", cols);
+    std::string status = searchQuery.empty() ? "Type query, press Enter" 
+                       : "(" + std::to_string(searchResults.size()) + " results)";
+    std::string hints = searchResults.empty() ? "esc back" 
+                      : "j/k move   enter select   esc back";
+    printStatusBar(rows - 1, status, hints, cols);
 }
 
 // ── MODE_SELECT_MODULE ────────────────────────────────────────────────────────
@@ -221,11 +241,12 @@ void TUI::drawModuleSelect() {
         if (sel) attroff(A_REVERSE);
     }
 
-    mvhline(rows - 3, 0, ACS_HLINE, cols);
-    if (!statusMsg.empty())
-        mvprintw(rows - 2, 2, "%s", trunc(statusMsg, cols - 4).c_str());
-    mvhline(rows - 1, 0, ACS_HLINE, cols);
-    printHints(rows - 1, 2, "j/k move   enter install   esc back", cols);
+    // Status bar
+    std::string status = statusMsg.empty() 
+                       ? "Installing: " + pendingResult.packageName 
+                       : statusMsg;
+    std::string hints = "j/k move   enter install   esc back";
+    printStatusBar(rows - 1, status, hints, cols);
 }
 
 // ── rebuild output ────────────────────────────────────────────────────────────
