@@ -307,25 +307,28 @@ void TUI::doInstall(const InstallTarget& target) {
         ? pendingResult.packageName
         : pendingResult.getPkgsAttribute();
 
+    statusMsg = "Installing " + pendingResult.packageName + "...";
+    clear();
+    drawModuleSelect();
+    refresh();
+
     PackageInserter inserter;
     if (!inserter.insertPackage(target, pkg)) {
         statusMsg = "Error: could not write to file.";
         return;
     }
 
-    // Phase 8: validate Nix syntax before rebuilding
-    std::string parseCmd = "nix-instantiate --parse " + target.filePath
-                         + " > /dev/null 2>&1";
-    if (std::system(parseCmd.c_str()) != 0) {
-        statusMsg = "Syntax error in " + target.fileName + " – changes not applied";
-        // Revert: remove the line we just added by running the editor in reverse
-        // (simplest safe option is to warn and let user fix manually)
-        return;
-    }
+    statusMsg = "Package written, starting rebuild...";
+    clear();
+    drawModuleSelect();
+    refresh();
 
     RebuildManager rebuild;
     bool ok = rebuild.rebuild();
     drawRebuildOutput(rebuild.getOutput(), ok);
+    
+    // Clear status message after rebuild
+    statusMsg.clear();
 }
 
 void TUI::doRemove() {
