@@ -164,7 +164,7 @@ void TUI::drawList() {
 
     std::string status = "(" + std::to_string(installed.size()) + " packages  " 
                        + std::to_string(marked) + " marked)";
-    std::string hints = "j/k move   d mark   a add   w save+rebuild   q quit";
+    std::string hints = "j/k move   d mark   a add   w save+rebuild   ; settings   q quit";
     printStatusBar(rows - 1, status, hints, cols);
 }
 
@@ -297,27 +297,37 @@ void TUI::drawSettings() {
     // Settings box
     drawBox(1, 0, rows - 3, cols);
 
+    // Column headers
+    attron(A_BOLD);
+    mvprintw(2, 2, "%-32s  %s", "Option", "Value");
+    attroff(A_BOLD);
+    mvhline(3, 1, ACS_HLINE, cols - 2);
+    mvaddch(3, 0,        ACS_LTEE);
+    mvaddch(3, cols - 1, ACS_RTEE);
+
     // Settings items
-    int y = 3;
+    int y = 4;
+    int optionW = 32;
+    int valueW = cols - optionW - 10;
+    if (valueW < 15) valueW = 15;
     
     // Rebuild command
     if (settingsCursor == 0) attron(A_REVERSE);
-    mvprintw(y++, 2, "Rebuild Command:");
-    mvprintw(y++, 4, "%s", settings.rebuildCommand.c_str());
+    mvprintw(y++, 2, "%-*s  %s", optionW, "Rebuild Command:", 
+             trunc(settings.rebuildCommand, valueW).c_str());
     if (settingsCursor == 0) attroff(A_REVERSE);
-    
-    y++; // blank line
     
     // Dry run toggle
     if (settingsCursor == 1) attron(A_REVERSE);
-    mvprintw(y++, 2, "Dry Run Mode: %s", settings.dryRun ? "[ON]" : "[OFF]");
+    mvprintw(y++, 2, "%-*s  %s", optionW, "Dry Run Mode:", 
+             settings.dryRun ? "[ON]" : "[OFF]");
     if (settingsCursor == 1) attroff(A_REVERSE);
     
-    mvprintw(y++, 2, "Toggle with: Space or Enter");
-    mvprintw(y++, 2, "Note: Dry run shows what would be changed without rebuilding");
+    // Instructions
+    mvprintw(y + 1, 2, "Space/Enter to toggle  |  Current settings apply to next rebuild");
 
     // Status bar
-    std::string status = "Configure nixedit behavior";
+    std::string status = "(" + std::to_string(2) + " options)";
     std::string hints = "j/k move   space toggle   esc back";
     printStatusBar(rows - 1, status, hints, cols);
 }
