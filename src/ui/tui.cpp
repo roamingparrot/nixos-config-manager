@@ -331,31 +331,33 @@ void TUI::doInstall(const InstallTarget& target) {
 void TUI::doRemove() {
     bool any = false;
     for (auto& p : installed) if (p.markedForDeletion) { any = true; break; }
-    if (!any) return;
+    if (!any) {
+        statusMsg = "No packages marked for deletion";
+        return;
+    }
+    
+    statusMsg = "Removing packages...";
+    clear();
+    drawList();
+    refresh();
 
     ConfigEditor editor;
     if (!editor.removePackages(installed)) {
         statusMsg = "Error: could not remove packages.";
         return;
     }
-
-    // Validate all modified files before rebuilding
-    bool syntaxOk = true;
-    for (const auto& p : installed) {
-        if (!p.markedForDeletion) continue;
-        std::string parseCmd = "nix-instantiate --parse " + p.filePath
-                             + " > /dev/null 2>&1";
-        if (std::system(parseCmd.c_str()) != 0) {
-            statusMsg = "Syntax error after edit in " + p.filePath;
-            syntaxOk  = false;
-            break;
-        }
-    }
-    if (!syntaxOk) return;
+    
+    statusMsg = "Starting rebuild...";
+    clear();
+    drawList();
+    refresh();
 
     RebuildManager rebuild;
     bool ok = rebuild.rebuild();
     drawRebuildOutput(rebuild.getOutput(), ok);
+    
+    // Clear status message after rebuild
+    statusMsg.clear();
 }
 
 // ── main loop ─────────────────────────────────────────────────────────────────
