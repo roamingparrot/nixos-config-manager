@@ -96,7 +96,7 @@ by directly editing declarative configuration files. It provides:
 
 - Multi-file configuration support (follows imports)
 - Package search using nix-env -qaP
-- Smart syntax detection (with pkgs; vs pkgs.)
+- Smart syntax detection (pkgs. references)
 - Safe package removal preserving formatting
 - Automatic nixos-rebuild integration
 
