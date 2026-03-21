@@ -317,14 +317,14 @@ void TUI::drawSettings() {
              trunc(settings.rebuildCommand, valueW).c_str());
     if (settingsCursor == 0) attroff(A_REVERSE);
     
-    // Automatic rebuild toggle
+    // Dry run toggle
     if (settingsCursor == 1) attron(A_REVERSE);
     mvprintw(y++, 2, "%-*s  %s", optionW, "Dry Run:", 
              settings.automaticRebuild ? "false" : "true");
     if (settingsCursor == 1) attroff(A_REVERSE);
     
     // Instructions
-    mvprintw(y + 1, 2, "Space/Enter to toggle  |  true = saves changes, false = also rebuilds");
+    mvprintw(y + 1, 2, "Space/Enter to toggle  |  true = saves changes only, false = saves + rebuilds");
 
     // Status bar
     std::string status = "(" + std::to_string(2) + " options)";
