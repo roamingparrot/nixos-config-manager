@@ -51,10 +51,14 @@ private:
 
     // Settings
     struct Settings {
-        std::string rebuildCommand = "nixos-rebuild switch";
         bool automaticRebuild = true;  // true = auto rebuild, false = manual
+        bool dryRun = false;           // true = dry-run mode, false = normal
     } settings;
     int settingsCursor;
+    
+    // Settings persistence
+    void loadSettings();
+    void saveSettings();
 
     // ── draw ──────────────────────────────────────────────
     void drawList();

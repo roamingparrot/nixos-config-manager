@@ -10,6 +10,8 @@
 #include <sstream>
 #include <cstring>
 #include <cstdlib>
+#include <fstream>
+#include <iostream>
 
 using Ms = std::chrono::milliseconds;
 
@@ -25,6 +27,51 @@ void TUI::initialize(const std::vector<PackageEntry>& pkgs,
     installed      = pkgs;
     installTargets = targets;
     configPath     = path;
+    loadSettings();
+}
+
+void TUI::loadSettings() {
+    std::string settingsPath = std::string(getenv("HOME") ? getenv("HOME") : "/root") + "/.config/nixedit/settings.json";
+    
+    std::ifstream file(settingsPath);
+    if (!file.is_open()) {
+        // Use defaults if file doesn't exist
+        return;
+    }
+    
+    try {
+        std::string line;
+        while (std::getline(file, line)) {
+            // Simple JSON parsing
+            if (line.find("\"automaticRebuild\"") != std::string::npos) {
+                settings.automaticRebuild = (line.find("true") != std::string::npos);
+            } else if (line.find("\"dryRun\"") != std::string::npos) {
+                settings.dryRun = (line.find("true") != std::string::npos);
+            }
+        }
+    } catch (...) {
+        // Ignore errors, use defaults
+    }
+}
+
+void TUI::saveSettings() {
+    std::string settingsDir = std::string(getenv("HOME") ? getenv("HOME") : "/root") + "/.config/nixedit";
+    std::string settingsPath = settingsDir + "/settings.json";
+    
+    // Create directory if it doesn't exist
+    int mkdirResult = std::system(("mkdir -p " + settingsDir).c_str());
+    (void)mkdirResult;  // Suppress unused warning
+    
+    std::ofstream file(settingsPath);
+    if (!file.is_open()) {
+        std::cerr << "Warning: Could not save settings to " << settingsPath << std::endl;
+        return;
+    }
+    
+    file << "{\n";
+    file << "  \"automaticRebuild\": " << (settings.automaticRebuild ? "true" : "false") << ",\n";
+    file << "  \"dryRun\": " << (settings.dryRun ? "true" : "false") << "\n";
+    file << "}\n";
 }
 
 void TUI::reloadPackages() {
@@ -311,28 +358,34 @@ void TUI::drawSettings() {
     int valueW = cols - optionW - 10;
     if (valueW < 15) valueW = 15;
     
-    // Rebuild command
+    // Rebuild mode toggle
     if (settingsCursor == 0) attron(A_REVERSE);
-    mvprintw(y++, 2, "%-*s  %s", optionW, "Rebuild Command:", 
-             trunc(settings.rebuildCommand, valueW).c_str());
+    mvprintw(y++, 2, "%-*s  %s", optionW, "Rebuild Mode:", 
+             settings.automaticRebuild ? "Automatic" : "Manual");
     if (settingsCursor == 0) attroff(A_REVERSE);
     
-    // Mode toggle
+    // Dry run toggle
     if (settingsCursor == 1) attron(A_REVERSE);
-    mvprintw(y++, 2, "%-*s  %s", optionW, "Mode:", 
-             settings.automaticRebuild ? "Automatic" : "Manual");
+    mvprintw(y++, 2, "%-*s  %s", optionW, "Dry Run:", 
+             settings.dryRun ? "true" : "false");
     if (settingsCursor == 1) attroff(A_REVERSE);
     
     // Dynamic instructions based on current selection
-    if (settingsCursor == 1) {
+    std::string explanation;
+    if (settingsCursor == 0) {
         if (settings.automaticRebuild) {
-            mvprintw(y + 1, 2, "Automatic: runs 'nixos-rebuild switch' automatically after changes");
+            explanation = "Automatic: runs 'nixos-rebuild switch' automatically after changes";
         } else {
-            mvprintw(y + 1, 2, "Manual: saves changes to files only. Run 'sudo nixos-rebuild switch' manually");
+            explanation = "Manual: saves changes to files only. Run 'sudo nixos-rebuild switch' manually";
         }
-    } else {
-        mvprintw(y + 1, 2, "Space/Enter to toggle mode");
+    } else if (settingsCursor == 1) {
+        if (settings.dryRun) {
+            explanation = "Dry Run: shows what would be built without applying changes";
+        } else {
+            explanation = "Normal: applies changes to the system";
+        }
     }
+    mvprintw(y + 1, 2, "%s", explanation.c_str());
 
     // Status bar
     std::string status = "(" + std::to_string(2) + " options)";
@@ -433,7 +486,8 @@ void TUI::doInstall(const InstallTarget& target) {
     endwin();
     
     RebuildManager rebuild;
-    rebuild.setRebuildCommand(settings.rebuildCommand);
+    rebuild.setRebuildCommand("nixos-rebuild switch");
+    rebuild.setDryRun(settings.dryRun);
     bool ok = rebuild.rebuild();
     
     // Re-initialize ncurses
@@ -490,7 +544,8 @@ void TUI::doRemove() {
     endwin();
     
     RebuildManager rebuild;
-    rebuild.setRebuildCommand(settings.rebuildCommand);
+    rebuild.setRebuildCommand("nixos-rebuild switch");
+    rebuild.setDryRun(settings.dryRun);
     bool ok = rebuild.rebuild();
     
     // Re-initialize ncurses
@@ -577,7 +632,7 @@ void TUI::run() {
             if (ch == 27) {   // ESC
                 nocbreak(); cbreak();  // restore blocking getch
                 mode = MODE_LIST;
-            } else if (ch == '\n' || ch == KEY_ENTER) {
+            } else if (ch == '\n' || ch == KEY_ENTER || ch == ' ') {
                 if (!searchResults.empty()) {
                     pendingResult = searchResults[resultCursor];
                     moduleCursor  = 0;
@@ -605,7 +660,7 @@ void TUI::run() {
             if (ch == 27) {   // ESC
                 halfdelay(1);
                 mode = MODE_SEARCH;
-            } else if (ch == '\n' || ch == KEY_ENTER) {
+            } else if (ch == '\n' || ch == KEY_ENTER || ch == ' ') {
                 if (!installTargets.empty()) {
                     doInstall(installTargets[moduleCursor]);
                     mode = MODE_LIST;
@@ -617,18 +672,26 @@ void TUI::run() {
             }
         } else if (mode == MODE_SETTINGS) {
             if (ch == 27) {  // ESC
+                saveSettings();
                 mode = MODE_LIST;
             } else if (ch == 'j' || ch == KEY_DOWN) {
                 if (settingsCursor < 1) settingsCursor++;
             } else if (ch == 'k' || ch == KEY_UP) {
                 if (settingsCursor > 0) settingsCursor--;
             } else if (ch == ' ' || ch == '\n') {
-                // Toggle automatic rebuild mode
-                if (settingsCursor == 1) {
+                // Toggle settings
+                if (settingsCursor == 0) {
                     settings.automaticRebuild = !settings.automaticRebuild;
+                    saveSettings();
                     statusMsg = settings.automaticRebuild ? 
-                        "Mode: Automatic (will rebuild)" : 
-                        "Mode: Manual (no rebuild)";
+                        "Rebuild Mode: Automatic" : 
+                        "Rebuild Mode: Manual";
+                } else if (settingsCursor == 1) {
+                    settings.dryRun = !settings.dryRun;
+                    saveSettings();
+                    statusMsg = settings.dryRun ? 
+                        "Dry Run: ON" : 
+                        "Dry Run: OFF";
                 }
             }
         }

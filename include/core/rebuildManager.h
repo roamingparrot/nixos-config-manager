@@ -15,6 +15,7 @@ private:
     std::string lastOutput;  // Last rebuild output
     bool isRebuilding;       // Rebuild in progress flag
     std::string rebuildCommand;
+    bool dryRun;
     
 public:
     /**
@@ -27,6 +28,12 @@ public:
      * @param cmd Command to run (e.g., "nixos-rebuild switch")
      */
     void setRebuildCommand(const std::string& cmd);
+    
+    /**
+     * @brief Set dry run mode
+     * @param enable If true, add --dry-run flag
+     */
+    void setDryRun(bool enable);
     
     /**
      * @brief Run nixos-rebuild switch
