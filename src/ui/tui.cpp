@@ -230,7 +230,7 @@ void TUI::drawSearch() {
     std::string status = searchQuery.empty() ? "Type query, press Enter" 
                        : "(" + std::to_string(searchResults.size()) + " results)";
     std::string hints = searchResults.empty() ? "esc back" 
-                      : "j/k move   enter select   esc back";
+                      : "enter select   esc back";
     printStatusBar(rows - 1, status, hints, cols);
 }
 
@@ -280,7 +280,7 @@ void TUI::drawModuleSelect() {
     std::string status = statusMsg.empty() 
                        ? "Installing: " + pendingResult.packageName 
                        : statusMsg;
-    std::string hints = "j/k move   enter install   esc back";
+    std::string hints = "enter install   esc back";
     printStatusBar(rows - 1, status, hints, cols);
 }
 
@@ -319,16 +319,16 @@ void TUI::drawSettings() {
     
     // Automatic rebuild toggle
     if (settingsCursor == 1) attron(A_REVERSE);
-    mvprintw(y++, 2, "%-*s  %s", optionW, "Automatic Rebuild:", 
-             settings.automaticRebuild ? "[ON]" : "[OFF]");
+    mvprintw(y++, 2, "%-*s  %s", optionW, "Dry Run:", 
+             settings.automaticRebuild ? "false" : "true");
     if (settingsCursor == 1) attroff(A_REVERSE);
     
     // Instructions
-    mvprintw(y + 1, 2, "Space/Enter to toggle  |  When OFF, changes are saved but no rebuild occurs");
+    mvprintw(y + 1, 2, "Space/Enter to toggle  |  true = saves changes, false = also rebuilds");
 
     // Status bar
     std::string status = "(" + std::to_string(2) + " options)";
-    std::string hints = "j/k move   space toggle   esc back";
+    std::string hints = "space toggle   esc back";
     printStatusBar(rows - 1, status, hints, cols);
 }
 
