@@ -1,3 +1,3 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs }:
 
-pkgs.callPackage ./default.nix {}
+pkgs.callPackage ./default.nix { }

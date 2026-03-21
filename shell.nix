@@ -1,11 +1,11 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs }:
 
 pkgs.mkShell {
-  buildInputs = with pkgs; [
-    cmake
-    ncurses
-    gcc
-    gnumake
+  buildInputs = [
+    pkgs.cmake
+    pkgs.ncurses
+    pkgs.gcc
+    pkgs.gnumake
   ];
 
   shellHook = ''
