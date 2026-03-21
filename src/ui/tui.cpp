@@ -374,15 +374,15 @@ void TUI::drawSettings() {
     std::string explanation;
     if (settingsCursor == 0) {
         if (settings.automaticRebuild) {
-            explanation = "Automatic: runs 'nixos-rebuild switch' automatically after changes";
+            explanation = "(Automatic): runs 'nixos-rebuild switch' automatically after changes";
         } else {
-            explanation = "Manual: saves changes to files only. Run 'sudo nixos-rebuild switch' manually";
+            explanation = "(Manual): saves changes to files only. Run 'sudo nixos-rebuild switch' manually";
         }
     } else if (settingsCursor == 1) {
         if (settings.dryRun) {
-            explanation = "Dry Run: shows what would be built without applying changes";
+            explanation = "(Dry Run): shows what would be built without applying changes";
         } else {
-            explanation = "Normal: applies changes to the system";
+            explanation = "(Normal): applies changes to the system";
         }
     }
     mvprintw(y + 1, 2, "%s", explanation.c_str());
