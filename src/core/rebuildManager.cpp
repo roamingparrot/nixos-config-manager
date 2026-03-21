@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <cstdlib>
 #include <signal.h>
+#include <sys/wait.h>
 
 // External declaration for ncurses endwin - we'll use system() instead to avoid header issues
 // The key issue is that ncurses has the terminal in a special state during popen()
@@ -15,19 +16,14 @@ bool RebuildManager::rebuild() {
     lastOutput.clear();
     
     try {
-        // CRITICAL: Use system() instead of popen() to avoid terminal state conflicts
-        // nixedit runs in ncurses mode which puts the terminal in a special state
-        // Using system() with script workaround or running endwin() first helps
-        
-        // Build command with timeout (5 minutes max) and use script to handle PTY
-        std::string command = 
-            "timeout 300 script -q -c 'nixos-rebuild switch --show-trace' /dev/null 2>&1";
-        
-        // Alternative without script if that fails:
-        // std::string command = "timeout 300 nixos-rebuild switch --show-trace 2>&1";
+        // Since we call endwin() before this, we can use a simple command
+        // Timeout after 10 minutes to prevent hanging forever
+        std::string command = "timeout 600 nixos-rebuild switch --show-trace 2>&1";
         
         lastOutput = "Running nixos-rebuild switch...\n";
-        lastOutput += "This may take a few minutes...\n\n";
+        lastOutput += "This may take several minutes...\n\n";
+        
+        std::cerr << "DEBUG: Executing: " << command << std::endl;
         
         FILE* pipe = popen(command.c_str(), "r");
         if (!pipe) {
@@ -36,23 +32,28 @@ bool RebuildManager::rebuild() {
             return false;
         }
         
+        // Read output in real-time
         char buffer[4096];
         while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
             lastOutput += buffer;
+            // Also print to stderr for debugging
+            std::cerr << buffer;
         }
         
         int result = pclose(pipe);
         isRebuilding = false;
         
-        // Check result
-        if (result == 124) {
-            lastOutput += "\n\nError: nixos-rebuild timed out after 5 minutes\n";
+        std::cerr << "DEBUG: nixos-rebuild exit code: " << result << std::endl;
+        
+        // Check result (timeout returns 124, shifted by 8 bits = 31744)
+        if (WEXITSTATUS(result) == 124) {
+            lastOutput += "\n\nError: nixos-rebuild timed out after 10 minutes\n";
             return false;
-        } else if (result == 127) {
+        } else if (result == 127 || WEXITSTATUS(result) == 127) {
             lastOutput += "\n\nError: nixos-rebuild command not found\n";
             return false;
         } else if (result != 0) {
-            lastOutput += "\n\nError: nixos-rebuild failed\n";
+            lastOutput += "\n\nError: nixos-rebuild failed with exit code: " + std::to_string(WEXITSTATUS(result)) + "\n";
             return false;
         }
         
