@@ -13,7 +13,7 @@ stdenv.mkDerivation (finalAttrs: {
   src = fetchFromGitHub {
     owner = "roamingparrot";
     repo = "nixos-config-manager";
-    rev = "v${version}";
+    rev = "v${finalAttrs.version}";
     hash = "sha256-XtGmw6cDx7QQO8s0fXRsQKKM7oqRWwNzqCPoIbRTxdU=";
   };
 
