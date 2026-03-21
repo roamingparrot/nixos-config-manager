@@ -9,23 +9,38 @@
 // External declaration for ncurses endwin - we'll use system() instead to avoid header issues
 // The key issue is that ncurses has the terminal in a special state during popen()
 
-RebuildManager::RebuildManager() : isRebuilding(false) {}
+RebuildManager::RebuildManager() 
+    : isRebuilding(false), rebuildCommand("nixos-rebuild switch"), dryRun(false) {}
+
+void RebuildManager::setRebuildCommand(const std::string& cmd) {
+    rebuildCommand = cmd;
+}
+
+void RebuildManager::setDryRun(bool dryrun) {
+    dryRun = dryrun;
+}
 
 bool RebuildManager::rebuild() {
     isRebuilding = true;
     lastOutput.clear();
     
     try {
-        // Since we call endwin() before this, we can use a simple command
-        // Timeout after 10 minutes to prevent hanging forever
-        std::string command = "timeout 600 nixos-rebuild switch --show-trace 2>&1";
+        // Build command based on settings
+        std::string fullCommand = rebuildCommand;
         
-        lastOutput = "Running nixos-rebuild switch...\n";
-        lastOutput += "This may take several minutes...\n\n";
+        if (dryRun) {
+            // In dry-run mode, use nixos-rebuild dry-activate
+            fullCommand = rebuildCommand + " --dry-run";
+            lastOutput = "DRY RUN MODE - Showing what would be built...\n\n";
+        } else {
+            fullCommand = "timeout 600 " + rebuildCommand + " --show-trace 2>&1";
+            lastOutput = "Running " + rebuildCommand + "...\n";
+            lastOutput += "This may take several minutes...\n\n";
+        }
         
-        std::cerr << "DEBUG: Executing: " << command << std::endl;
+        std::cerr << "DEBUG: Executing: " << fullCommand << std::endl;
         
-        FILE* pipe = popen(command.c_str(), "r");
+        FILE* pipe = popen(fullCommand.c_str(), "r");
         if (!pipe) {
             lastOutput += "\nError: Failed to execute nixos-rebuild\n";
             isRebuilding = false;

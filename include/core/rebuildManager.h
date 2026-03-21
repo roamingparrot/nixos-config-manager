@@ -14,12 +14,26 @@ class RebuildManager {
 private:
     std::string lastOutput;  // Last rebuild output
     bool isRebuilding;       // Rebuild in progress flag
+    std::string rebuildCommand;
+    bool dryRun;
     
 public:
     /**
      * @brief Constructor
      */
     RebuildManager();
+    
+    /**
+     * @brief Set rebuild command
+     * @param cmd Command to run (e.g., "nixos-rebuild switch")
+     */
+    void setRebuildCommand(const std::string& cmd);
+    
+    /**
+     * @brief Enable/disable dry-run mode
+     * @param dryrun If true, just show what would happen
+     */
+    void setDryRun(bool dryrun);
     
     /**
      * @brief Run nixos-rebuild switch

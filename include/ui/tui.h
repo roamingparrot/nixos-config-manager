@@ -11,7 +11,8 @@
 enum TUIMode {
     MODE_LIST,          // Browse installed packages
     MODE_SEARCH,        // Live search + results
-    MODE_SELECT_MODULE  // Pick target .nix file
+    MODE_SELECT_MODULE,  // Pick target .nix file
+    MODE_SETTINGS        // Settings menu
 };
 
 /**
@@ -48,10 +49,18 @@ private:
     // Config path for reloading packages after install
     std::string configPath;
 
+    // Settings
+    struct Settings {
+        std::string rebuildCommand = "nixos-rebuild switch";
+        bool dryRun = false;
+    } settings;
+    int settingsCursor;
+
     // ── draw ──────────────────────────────────────────────
     void drawList();
     void drawSearch();
     void drawModuleSelect();
+    void drawSettings();
     void drawBox(int y, int x, int h, int w);
     void drawRebuildOutput(const std::string& out, bool ok);
 

@@ -284,6 +284,44 @@ void TUI::drawModuleSelect() {
     printStatusBar(rows - 1, status, hints, cols);
 }
 
+// ── MODE_SETTINGS ─────────────────────────────────────────────────────────────
+
+void TUI::drawSettings() {
+    int rows, cols;
+    getmaxyx(stdscr, rows, cols);
+
+    attron(A_REVERSE | A_BOLD);
+    mvprintw(0, 0, "%-*s", cols, " nixedit – Settings");
+    attroff(A_REVERSE | A_BOLD);
+
+    // Settings box
+    drawBox(1, 0, rows - 3, cols);
+
+    // Settings items
+    int y = 3;
+    
+    // Rebuild command
+    if (settingsCursor == 0) attron(A_REVERSE);
+    mvprintw(y++, 2, "Rebuild Command:");
+    mvprintw(y++, 4, "%s", settings.rebuildCommand.c_str());
+    if (settingsCursor == 0) attroff(A_REVERSE);
+    
+    y++; // blank line
+    
+    // Dry run toggle
+    if (settingsCursor == 1) attron(A_REVERSE);
+    mvprintw(y++, 2, "Dry Run Mode: %s", settings.dryRun ? "[ON]" : "[OFF]");
+    if (settingsCursor == 1) attroff(A_REVERSE);
+    
+    mvprintw(y++, 2, "Toggle with: Space or Enter");
+    mvprintw(y++, 2, "Note: Dry run shows what would be changed without rebuilding");
+
+    // Status bar
+    std::string status = "Configure nixedit behavior";
+    std::string hints = "j/k move   space toggle   esc back";
+    printStatusBar(rows - 1, status, hints, cols);
+}
+
 // ── rebuild output ────────────────────────────────────────────────────────────
 
 void TUI::drawRebuildOutput(const std::string& out, bool ok) {
@@ -369,6 +407,8 @@ void TUI::doInstall(const InstallTarget& target) {
     endwin();
     
     RebuildManager rebuild;
+    rebuild.setRebuildCommand(settings.rebuildCommand);
+    rebuild.setDryRun(settings.dryRun);
     bool ok = rebuild.rebuild();
     
     // Re-initialize ncurses
@@ -417,6 +457,8 @@ void TUI::doRemove() {
     endwin();
     
     RebuildManager rebuild;
+    rebuild.setRebuildCommand(settings.rebuildCommand);
+    rebuild.setDryRun(settings.dryRun);
     bool ok = rebuild.rebuild();
     
     // Re-initialize ncurses
@@ -468,6 +510,7 @@ void TUI::run() {
             case MODE_LIST:          drawList();         break;
             case MODE_SEARCH:        drawSearch();       break;
             case MODE_SELECT_MODULE: drawModuleSelect(); break;
+            case MODE_SETTINGS:      drawSettings();      break;
         }
         refresh();
 
@@ -492,6 +535,10 @@ void TUI::run() {
             else if ((ch == 'd' || ch == 'D') && !installed.empty()) {
                 installed[listCursor].markedForDeletion =
                     !installed[listCursor].markedForDeletion;
+            }
+            else if (ch == ';') {
+                settingsCursor = 0;
+                mode = MODE_SETTINGS;
             }
 
         } else if (mode == MODE_SEARCH) {
@@ -535,6 +582,19 @@ void TUI::run() {
                 if (moduleCursor < (int)installTargets.size() - 1) moduleCursor++;
             } else if (ch == 'k' || ch == KEY_UP) {
                 if (moduleCursor > 0) moduleCursor--;
+            }
+        } else if (mode == MODE_SETTINGS) {
+            if (ch == 27) {  // ESC
+                mode = MODE_LIST;
+            } else if (ch == 'j' || ch == KEY_DOWN) {
+                if (settingsCursor < 1) settingsCursor++;
+            } else if (ch == 'k' || ch == KEY_UP) {
+                if (settingsCursor > 0) settingsCursor--;
+            } else if (ch == ' ' || ch == '\n') {
+                // Toggle dry-run mode
+                if (settingsCursor == 1) {
+                    settings.dryRun = !settings.dryRun;
+                }
             }
         }
     }
