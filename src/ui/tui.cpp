@@ -164,7 +164,7 @@ void TUI::drawList() {
 
     std::string status = "(" + std::to_string(installed.size()) + " packages  " 
                        + std::to_string(marked) + " marked)";
-    std::string hints = "j/k move   d mark   a add   w save+rebuild   ; settings   q quit";
+    std::string hints = "d mark   a add   w write   ; settings   q quit";
     printStatusBar(rows - 1, status, hints, cols);
 }
 
