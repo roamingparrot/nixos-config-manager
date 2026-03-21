@@ -5,7 +5,7 @@
   ncurses,
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "nixedit";
   version = "0.1.0";
 
@@ -50,4 +50,4 @@ stdenv.mkDerivation rec {
     mainProgram = "nixedit";
     platforms = platforms.linux;
   };
-}
+})
