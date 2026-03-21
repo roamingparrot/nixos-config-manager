@@ -10,14 +10,10 @@
 // The key issue is that ncurses has the terminal in a special state during popen()
 
 RebuildManager::RebuildManager() 
-    : isRebuilding(false), rebuildCommand("nixos-rebuild switch"), dryRun(false) {}
+    : isRebuilding(false), rebuildCommand("nixos-rebuild switch") {}
 
 void RebuildManager::setRebuildCommand(const std::string& cmd) {
     rebuildCommand = cmd;
-}
-
-void RebuildManager::setDryRun(bool dryrun) {
-    dryRun = dryrun;
 }
 
 bool RebuildManager::rebuild() {
@@ -25,18 +21,10 @@ bool RebuildManager::rebuild() {
     lastOutput.clear();
     
     try {
-        // Build command based on settings
-        std::string fullCommand = rebuildCommand;
-        
-        if (dryRun) {
-            // In dry-run mode, use nixos-rebuild dry-activate
-            fullCommand = rebuildCommand + " --dry-run";
-            lastOutput = "DRY RUN MODE - Showing what would be built...\n\n";
-        } else {
-            fullCommand = "timeout 600 " + rebuildCommand + " --show-trace 2>&1";
-            lastOutput = "Running " + rebuildCommand + "...\n";
-            lastOutput += "This may take several minutes...\n\n";
-        }
+        // Build command with timeout
+        std::string fullCommand = "timeout 600 " + rebuildCommand + " --show-trace 2>&1";
+        lastOutput = "Running " + rebuildCommand + "...\n";
+        lastOutput += "This may take several minutes...\n\n";
         
         std::cerr << "DEBUG: Executing: " << fullCommand << std::endl;
         

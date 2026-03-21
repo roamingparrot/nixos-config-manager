@@ -317,14 +317,14 @@ void TUI::drawSettings() {
              trunc(settings.rebuildCommand, valueW).c_str());
     if (settingsCursor == 0) attroff(A_REVERSE);
     
-    // Dry run toggle
+    // Automatic rebuild toggle
     if (settingsCursor == 1) attron(A_REVERSE);
-    mvprintw(y++, 2, "%-*s  %s", optionW, "Dry Run Mode:", 
-             settings.dryRun ? "[ON]" : "[OFF]");
+    mvprintw(y++, 2, "%-*s  %s", optionW, "Automatic Rebuild:", 
+             settings.automaticRebuild ? "[ON]" : "[OFF]");
     if (settingsCursor == 1) attroff(A_REVERSE);
     
     // Instructions
-    mvprintw(y + 1, 2, "Space/Enter to toggle  |  Current settings apply to next rebuild");
+    mvprintw(y + 1, 2, "Space/Enter to toggle  |  When OFF, changes are saved but no rebuild occurs");
 
     // Status bar
     std::string status = "(" + std::to_string(2) + " options)";
@@ -408,6 +408,14 @@ void TUI::doInstall(const InstallTarget& target) {
         return;
     }
 
+    // Check if automatic rebuild is enabled
+    if (!settings.automaticRebuild) {
+        // Manual mode: just show that package was added
+        statusMsg = pendingResult.packageName + " added (manual mode - no rebuild)";
+        reloadPackages();
+        return;
+    }
+    
     statusMsg = "Package written, starting rebuild...";
     clear();
     drawModuleSelect();
@@ -418,7 +426,6 @@ void TUI::doInstall(const InstallTarget& target) {
     
     RebuildManager rebuild;
     rebuild.setRebuildCommand(settings.rebuildCommand);
-    rebuild.setDryRun(settings.dryRun);
     bool ok = rebuild.rebuild();
     
     // Re-initialize ncurses
@@ -458,6 +465,14 @@ void TUI::doRemove() {
         return;
     }
     
+    // Check if automatic rebuild is enabled
+    if (!settings.automaticRebuild) {
+        // Manual mode: just show that packages were removed
+        statusMsg = "Packages removed (manual mode - no rebuild)";
+        reloadPackages();
+        return;
+    }
+    
     statusMsg = "Starting rebuild...";
     clear();
     drawList();
@@ -468,7 +483,6 @@ void TUI::doRemove() {
     
     RebuildManager rebuild;
     rebuild.setRebuildCommand(settings.rebuildCommand);
-    rebuild.setDryRun(settings.dryRun);
     bool ok = rebuild.rebuild();
     
     // Re-initialize ncurses
@@ -601,9 +615,9 @@ void TUI::run() {
             } else if (ch == 'k' || ch == KEY_UP) {
                 if (settingsCursor > 0) settingsCursor--;
             } else if (ch == ' ' || ch == '\n') {
-                // Toggle dry-run mode
+                // Toggle automatic rebuild mode
                 if (settingsCursor == 1) {
-                    settings.dryRun = !settings.dryRun;
+                    settings.automaticRebuild = !settings.automaticRebuild;
                 }
             }
         }
