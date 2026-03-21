@@ -45,6 +45,6 @@ stdenv.mkDerivation (finalAttrs: {
     license = licenses.mit;
     maintainers = with lib.maintainers; [ roamingparrot ];
     mainProgram = "nixedit";
-    platforms = platforms.linux;
+    platforms = lib.platforms.linux;
   };
 })
