@@ -626,6 +626,9 @@ void TUI::run() {
                 // Toggle automatic rebuild mode
                 if (settingsCursor == 1) {
                     settings.automaticRebuild = !settings.automaticRebuild;
+                    statusMsg = settings.automaticRebuild ? 
+                        "Mode: Automatic (will rebuild)" : 
+                        "Mode: Manual (no rebuild)";
                 }
             }
         }
