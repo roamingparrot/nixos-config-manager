@@ -3,6 +3,9 @@
 #include "core/packageInserter.h"
 #include "core/configEditor.h"
 #include "core/rebuildManager.h"
+#include "core/moduleResolver.h"
+#include "core/configParser.h"
+#include "core/moduleSelector.h"
 #include <ncurses.h>
 #include <sstream>
 #include <cstring>
@@ -14,12 +17,44 @@ using Ms = std::chrono::milliseconds;
 
 TUI::TUI()
     : mode(MODE_LIST), listCursor(0), resultCursor(0), moduleCursor(0),
-      searchPending(false), isSearching(false) {}
+      searchPending(false), isSearching(false), configPath("/etc/nixos/configuration.nix") {}
 
 void TUI::initialize(const std::vector<PackageEntry>& pkgs,
-                     const std::vector<InstallTarget>& targets) {
+                     const std::vector<InstallTarget>& targets,
+                     const std::string& path) {
     installed      = pkgs;
     installTargets = targets;
+    configPath     = path;
+}
+
+void TUI::reloadPackages() {
+    try {
+        ModuleResolver resolver;
+        std::vector<std::string> modules =
+            resolver.resolveAllModules(configPath);
+
+        ConfigParser parser;
+        installed.clear();
+        for (const std::string& path : modules) {
+            try {
+                ModuleInfo mod = resolver.loadModule(path);
+                std::vector<PackageEntry> pkgs =
+                    parser.extractPackages(mod.content, path);
+                installed.insert(installed.end(), pkgs.begin(), pkgs.end());
+            } catch (...) {
+                // Skip unreadable modules
+            }
+        }
+
+        // Update install targets as well
+        ModuleSelector selector;
+        installTargets = selector.discoverTargets(modules);
+
+        listCursor = 0;
+        statusMsg = "Packages reloaded successfully";
+    } catch (const std::exception& e) {
+        statusMsg = "Error reloading packages: " + std::string(e.what());
+    }
 }
 
 // ── box drawing ───────────────────────────────────────────────────────────────
@@ -345,6 +380,11 @@ void TUI::doInstall(const InstallTarget& target) {
     
     drawRebuildOutput(rebuild.getOutput(), ok);
     
+    // Reload packages if rebuild succeeded
+    if (ok) {
+        reloadPackages();
+    }
+    
     // Clear status message after rebuild
     statusMsg.clear();
 }
@@ -387,6 +427,11 @@ void TUI::doRemove() {
     curs_set(0);
     
     drawRebuildOutput(rebuild.getOutput(), ok);
+    
+    // Reload packages if rebuild succeeded
+    if (ok) {
+        reloadPackages();
+    }
     
     // Clear status message after rebuild
     statusMsg.clear();

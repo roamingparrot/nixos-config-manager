@@ -45,6 +45,9 @@ private:
     bool         searchPending;  // query changed, search not yet run
     bool         isSearching;    // search currently running
 
+    // Config path for reloading packages after install
+    std::string configPath;
+
     // ── draw ──────────────────────────────────────────────
     void drawList();
     void drawSearch();
@@ -56,11 +59,13 @@ private:
     void triggerSearch();
     void doInstall(const InstallTarget& t);
     void doRemove();
+    void reloadPackages();  // Reload installed packages after rebuild
 
 public:
     TUI();
     void initialize(const std::vector<PackageEntry>& pkgs,
-                    const std::vector<InstallTarget>& targets);
+                    const std::vector<InstallTarget>& targets,
+                    const std::string& configPath = "/etc/nixos/configuration.nix");
     void run();
 };
 

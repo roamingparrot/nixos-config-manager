@@ -31,7 +31,7 @@ int main() {
 
         // Hand everything to the TUI and let it own the rest
         TUI tui;
-        tui.initialize(allPackages, targets);
+        tui.initialize(allPackages, targets, "/etc/nixos/configuration.nix");
         tui.run();
 
     } catch (const std::exception& e) {
