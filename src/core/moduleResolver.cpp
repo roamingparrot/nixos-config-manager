@@ -112,8 +112,15 @@ std::vector<std::string> ModuleResolver::parseImports(const std::string& content
             path.pop_back();
         }
         
-        // Skip empty paths, comments, and nixpkgs paths (starting with <)
-        if (path.empty() || path[0] == '#' || path[0] == '<') {
+        // Skip empty paths, comments, nixpkgs paths, and Nix expressions
+        if (path.empty() || path[0] == '#' || path[0] == '<' || path[0] == '(') {
+            continue;
+        }
+        
+        // Skip lines containing Nix expressions (modulesPath, etc.)
+        if (path.find("modulesPath") != std::string::npos ||
+            path.find("+") != std::string::npos ||
+            path.find("$") != std::string::npos) {
             continue;
         }
         

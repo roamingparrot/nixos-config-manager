@@ -272,7 +272,14 @@ void TUI::drawRebuildOutput(const std::string& out, bool ok) {
     mvhline(rows - 2, 0, ACS_HLINE, cols);
     mvprintw(rows - 1, 2, "press any key to continue");
     refresh();
+    
+    // Switch to blocking mode for keypress
+    nocbreak();
+    cbreak();
     getch();
+    
+    // Restore halfdelay mode for main loop
+    halfdelay(1);
 }
 
 // ── search ────────────────────────────────────────────────────────────────────
