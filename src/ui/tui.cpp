@@ -323,8 +323,19 @@ void TUI::doInstall(const InstallTarget& target) {
     drawModuleSelect();
     refresh();
 
+    // CRITICAL: Exit ncurses mode before running rebuild
+    endwin();
+    
     RebuildManager rebuild;
     bool ok = rebuild.rebuild();
+    
+    // Re-initialize ncurses
+    initscr();
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
+    curs_set(0);
+    
     drawRebuildOutput(rebuild.getOutput(), ok);
     
     // Clear status message after rebuild
@@ -355,8 +366,19 @@ void TUI::doRemove() {
     drawList();
     refresh();
 
+    // CRITICAL: Exit ncurses mode before running rebuild
+    endwin();
+    
     RebuildManager rebuild;
     bool ok = rebuild.rebuild();
+    
+    // Re-initialize ncurses
+    initscr();
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
+    curs_set(0);
+    
     drawRebuildOutput(rebuild.getOutput(), ok);
     
     // Clear status message after rebuild
