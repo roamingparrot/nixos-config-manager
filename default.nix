@@ -1,7 +1,8 @@
-{ lib
-, stdenv
-, cmake
-, ncurses
+{
+  lib,
+  stdenv,
+  cmake,
+  ncurses,
 }:
 
 stdenv.mkDerivation rec {
@@ -10,14 +11,13 @@ stdenv.mkDerivation rec {
 
   src = lib.cleanSourceWith {
     src = ./.;
-    filter = path: type:
+    filter =
+      path: type:
       let
         baseName = baseNameOf path;
       in
-        # Exclude build artifacts and git
-        baseName != "build" &&
-        baseName != ".git" &&
-        baseName != "result";
+      # Exclude build artifacts and git
+      baseName != "build" && baseName != ".git" && baseName != "result";
   };
 
   nativeBuildInputs = [ cmake ];
@@ -46,7 +46,7 @@ stdenv.mkDerivation rec {
     '';
     homepage = "https://github.com/anomalyco/dotman";
     license = licenses.mit;
-    maintainers = [ ];
+    maintainers = with lib.maintainers; [ roamingparrot ];
     mainProgram = "nixedit";
     platforms = platforms.linux;
   };
